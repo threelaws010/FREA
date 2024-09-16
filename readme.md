@@ -153,3 +153,5 @@ This application has the same features as App 1, but is built separate from
 the back-end code using modern best practices (Vite, Svelte, Tailwind).  
 The auto-reload on changes are instant using the Docker watch `sync` config.  
 ![](.github/media/app5-ui.png)
+#   c a r e g i v e r  
+ 
