@@ -1,0 +1,15 @@
+flowchart TD
+    A[Load Environment Variables] --> B[Initialize Neo4j Connection]
+    B --> C[Process Files]
+    A --> D[Load TrOCR Model]
+    D --> E[Extract Text from Image]
+    E --> C
+    F[Preprocess Image] --> E
+    G[Extract Text from PDF] --> C
+    H[Extract Text from DOCX] --> C
+    I[Extract Text from TXT] --> C
+    J[Extract Math Formulas] --> C
+    K[Extract Chemistry Formulas] --> C
+    C --> L[Summarize Content]
+    L --> M[Store in Neo4j]
+    M --> N[Generate Knowledge Graph]
