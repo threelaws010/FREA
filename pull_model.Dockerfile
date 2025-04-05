@@ -28,7 +28,7 @@ COPY <<EOF pull_model.clj
       ;; ----------------------------------------------------------------------
       ;; just call `ollama pull` here - create OLLAMA_HOST from OLLAMA_BASE_URL
       ;; ----------------------------------------------------------------------
-      ;; TODO - this still doesn't show progress properly when run from docker compose
+      ;; TODO - this still doesn show progress properly when run from docker compose
 
       (let [done (async/chan)]
         (async/go-loop [n 0]
