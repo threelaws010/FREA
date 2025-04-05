@@ -23,8 +23,8 @@ services:
       context: .
       dockerfile: pull_model.Dockerfile
     environment:
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL-http://host.docker.internal:11434}
-      - LLM=${LLM-llama3}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL-http:127.0.0.1:11434}
+      - LLM=${LLM-llama2}
     networks:
       - net
     tty: true
