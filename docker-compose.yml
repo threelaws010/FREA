@@ -1,4 +1,14 @@
 services:
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    #runtime: nvidia # Only if you have a GPU and NVIDIA container toolkit
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+
 
   llm: &llm
     image: ollama/ollama:latest
@@ -23,11 +33,14 @@ services:
       context: .
       dockerfile: pull_model.Dockerfile
     environment:
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL-http:127.0.0.1:11434}
+      #- OLLAMA_BASE_URL=${OLLAMA_BASE_URL-http:127.0.0.1:11434}
       - LLM=${LLM-llama2}
+      - OLLAMA_HOST=http://ollama:11434
     networks:
       - net
     tty: true
+    depends_on:
+      - ollama
 
   database:
     user: neo4j:neo4j
@@ -241,6 +254,9 @@ services:
 
 networks:
   net:
+
+volumes:
+  ollama:
 
 
 
