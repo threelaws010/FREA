@@ -92,9 +92,7 @@ def chat_input():
         with st.chat_message("assistant"):
             st.caption(f"RAG: {name}")
             stream_handler = StreamHandler(st.empty())
-            result = output_function(
-                {"question": user_input, "chat_history": []}, callbacks=[stream_handler]
-            )["answer"]
+            result = output_function.invoke({"question": user_input, "chat_history": []}, callbacks=[stream_handler])["answer"]
             output = result
             st.session_state[f"user_input"].append(user_input)
             st.session_state[f"generated"].append(output)
