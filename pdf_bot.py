@@ -7,6 +7,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Neo4jVector
 from streamlit.logger import get_logger
+from langchain.chains import ConversationalRetrievalChain
 from chains import (
     load_embedding_model,
     load_llm,
@@ -79,8 +80,10 @@ def main():
             node_label="PdfBotChunk",
             pre_delete_collection=True,  # Delete existing PDF data
         )
-        qa = RetrievalQA.from_chain_type(
-            llm=llm, chain_type="stuff", retriever=vectorstore.as_retriever()
+        qa = ConversationalRetrievalChain.from_llm(
+            llm=llm,
+            retriever=vectorstore.as_retriever(),
+            return_source_documents=True
         )
 
         # Accept user questions/query
@@ -88,7 +91,7 @@ def main():
 
         if query:
             stream_handler = StreamHandler(st.empty())
-            qa.run(query, callbacks=[stream_handler])
+            qa.invoke(query, callbacks=[stream_handler])
 
 
 if __name__ == "__main__":

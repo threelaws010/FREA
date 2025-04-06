@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from langchain_community.graphs import Neo4jGraph
 import streamlit as st
 from streamlit.logger import get_logger
+from langchain_community.graphs import Neo4jGraph
 from chains import load_embedding_model
 from utils import create_constraints, create_vector_index
 from PIL import Image
@@ -40,7 +41,9 @@ def load_so_data(tag: str = "neo4j", page: int = 1) -> None:
         f"?pagesize=100&page={page}&order=desc&sort=creation&answers=1&tagged={tag}"
         "&site=stackoverflow&filter=!*236eb_eL9rai)MOSNZ-6D3Q6ZKb0buI*IVotWaTb"
     )
-    data = requests.get(so_api_base_url + parameters).json()
+    response = requests.get(so_api_base_url + parameters)
+    response.raise_for_status()
+    data = response.json()
     insert_so_data(data)
 
 
@@ -129,8 +132,8 @@ def render_page():
     if st.button("Import", type="primary"):
         with st.spinner("Loading... This might take a minute or two."):
             try:
-                for page in range(1, num_pages + 1):
-                    load_so_data(user_input, start_page + (page - 1))
+                for page in range(start_page, start_page + num_pages):
+                    load_so_data(user_input, page)
                 st.success("Import successful", icon="✅")
                 st.caption("Data model")
                 st.image(datamodel_image)
