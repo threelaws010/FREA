@@ -242,10 +242,7 @@ def generate_ticket(neo4j_graph, llm_chain, input_question):
             HumanMessagePromptTemplate.from_template("{question}"),
         ]
     )
-    llm_response = llm_chain(
-        f"Here's the question to rewrite in the expected format: ```{input_question}```",
-        [],
-        chat_prompt,
-    )
+    llm_response = llm_chain.invoke({
+    "question": f"Here's the question to rewrite in the expected format: ```{input_question}```"}, config={"callbacks": []}, prompt=chat_prompt)
     new_title, new_question = extract_title_and_question(llm_response["answer"])
     return (new_title, new_question)
