@@ -5,6 +5,7 @@ from streamlit.logger import get_logger
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_community.graphs import Neo4jGraph
 from dotenv import load_dotenv
+from langchain_ollama import ChatOllama
 from utils import (
     create_vector_index,
 )
@@ -48,7 +49,9 @@ class StreamHandler(BaseCallbackHandler):
         self.text += token
         self.container.markdown(self.text)
 
+ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")  # fallback for dev
 
+#llm = ChatOllama(model="mistral", base_url=ollama_host)
 llm = load_llm(llm_name, logger=logger, config={"ollama_base_url": ollama_base_url})
 
 llm_chain = configure_llm_only_chain(llm)
