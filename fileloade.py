@@ -1,9 +1,9 @@
 import os
 import json
 from pathlib import Path
-from langchain.document_loaders import UnstructuredFileLoader, UnstructuredImageLoader
-from langchain.vectorstores.neo4j_vector import Neo4jVector
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.document_loaders import UnstructuredFileLoader, UnstructuredImageLoader
+from langchain_community.vectorstores import Neo4jVector
+from langchain_community.embeddings import OpenAIEmbeddings
 from PIL import Image
 import torch
 import cv2
@@ -94,7 +94,7 @@ def process_image(filepath: Path):
         vectorstore.add_documents(langchain_doc)
 
 if __name__ == "__main__":
-    for filepath in INPUT_DIR.glob("C:/testfile/*"):
+    for filepath in INPUT_DIR.glob("**/*"):
         if filepath.is_file():
             try:
                 print(f"Processing {filepath}")
