@@ -20,17 +20,20 @@ WORKDIR /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir \
-    opencv-python \
+    torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7 && \
+    pip install --no-cache-dir \
+    langchain \
+    langchain-community \ 
+    openai \
+    neo4j \
+    yolov5 \
     pytesseract \
     pillow \
-    yolov5 \
-    langchain \
-    neo4j \
-    openai \
+    opencv-python \
     transformers \
     unstructured \
     tiktoken
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+
 
 # Copy your source code into the container
 COPY . .
@@ -39,4 +42,4 @@ COPY . .
  RUN python3 -c "import torch; torch.hub.load('ultralytics/yolov5', 'yolov5s', force_reload=True)"
 
 # Default command to run your script
-CMD ["python", "fileloade.py"]
+CMD ["python3", "fileloade.py"]
