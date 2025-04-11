@@ -12,9 +12,11 @@ from yolov5 import YOLOv5
 from transformers import pipeline
 import pytesseract
 import re
+import streamlit as st
 
 # Setup paths and environment
 INPUT_DIR = Path("./data")
+PROCESSED_TRACKER = Path(".processed_files.json")
 NEO4J_URL = "bolt://localhost:7687"
 NEO4J_USERNAME = "neo4j"
 NEO4J_PASSWORD = "password"
@@ -36,8 +38,19 @@ vectorstore = Neo4jVector(
     index_name="documents"
 )
 
+# Load or initialize processed file tracker
+if PROCESSED_TRACKER.exists():
+    with open(PROCESSED_TRACKER, "r") as f:
+        processed_files = set(json.load(f))
+else:
+    processed_files = set()
+
+def save_processed(filepath):
+    processed_files.add(filepath)
+    with open(PROCESSED_TRACKER, "w") as f:
+        json.dump(list(processed_files), f)
+
 def document_already_processed(source_path: str):
-    """Check Neo4j if document with source path already exists."""
     results = vectorstore.similarity_search("", k=1, filter={"source": source_path})
     return any(doc.metadata.get("source") == source_path for doc in results)
 
@@ -55,18 +68,24 @@ def classify_text(text):
     return "unknown"
 
 def process_document(filepath: Path):
+    if str(filepath) in processed_files:
+        print(f"Skipping {filepath}, already marked processed.")
+        return
     if document_already_processed(str(filepath)):
         print(f"Skipping {filepath}, already in vectorstore.")
+        save_processed(str(filepath))
         return
 
     if filepath.suffix.lower() == ".jpg":
-        return process_image(filepath)
+        process_image(filepath)
     else:
         loader = UnstructuredFileLoader(str(filepath))
         docs = loader.load()
         for doc in docs:
             doc.metadata["source"] = str(filepath)
         vectorstore.add_documents(docs)
+
+    save_processed(str(filepath))
 
 def process_image(filepath: Path):
     image = cv2.imread(str(filepath))
@@ -100,11 +119,31 @@ def process_image(filepath: Path):
 
         vectorstore.add_documents(langchain_doc)
 
+def show_dashboard():
+    st.set_page_config(page_title="Vectorization Dashboard", layout="wide")
+    st.title("📊 Vectorization Control Panel")
+    st.metric("✅ Files Vectorized", len(processed_files))
+    if processed_files:
+        with st.expander("📁 View Vectorized Files"):
+            for f in sorted(processed_files):
+                st.write(f)
+        if st.button("🗑️ Clear Vector Cache"):
+            processed_files.clear()
+            if PROCESSED_TRACKER.exists():
+                PROCESSED_TRACKER.unlink()
+            st.experimental_rerun()
+    else:
+        st.info("No files vectorized yet.")
+
 if __name__ == "__main__":
-    for filepath in INPUT_DIR.glob("**/*"):
-        if filepath.is_file():
-            try:
-                print(f"Processing {filepath}")
-                process_document(filepath)
-            except Exception as e:
-                print(f"Failed to process {filepath}: {e}")
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "dashboard":
+        show_dashboard()
+    else:
+        for filepath in INPUT_DIR.glob("**/*"):
+            if filepath.is_file():
+                try:
+                    print(f"Processing {filepath}")
+                    process_document(filepath)
+                except Exception as e:
+                    print(f"Failed to process {filepath}: {e}")
