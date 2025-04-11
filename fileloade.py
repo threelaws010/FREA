@@ -19,10 +19,8 @@ NEO4J_URL = "bolt://localhost:7687"
 NEO4J_USERNAME = "neo4j"
 NEO4J_PASSWORD = "password"
 
-# Initialize YOLOv5 model (make sure you have the model downloaded)
-#yolo = YOLOv5("./yolov5s.pt", device="cuda" if torch.cuda.is_available() else "cpu")
+# Initialize YOLOv5 model
 yolo = YOLOv5("./yolov5s.pt", device="cuda" if torch.version.hip else "cpu")
-
 
 # Initialize LLM image captioning
 describer = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
@@ -38,6 +36,11 @@ vectorstore = Neo4jVector(
     index_name="documents"
 )
 
+def document_already_processed(source_path: str):
+    """Check Neo4j if document with source path already exists."""
+    results = vectorstore.similarity_search("", k=1, filter={"source": source_path})
+    return any(doc.metadata.get("source") == source_path for doc in results)
+
 def classify_text(text):
     math_patterns = [r'\\?int', r'sin\\(|cos\\(|tan\\(', r'=\\s*[^ ]+', r'\\d+\\s*[+\-*/^]\\s*\\d+']
     chem_patterns = [r'[A-Z][a-z]?[0-9]*', r'\\+|\\->|\\(|\\)']
@@ -52,11 +55,17 @@ def classify_text(text):
     return "unknown"
 
 def process_document(filepath: Path):
+    if document_already_processed(str(filepath)):
+        print(f"Skipping {filepath}, already in vectorstore.")
+        return
+
     if filepath.suffix.lower() == ".jpg":
         return process_image(filepath)
     else:
         loader = UnstructuredFileLoader(str(filepath))
         docs = loader.load()
+        for doc in docs:
+            doc.metadata["source"] = str(filepath)
         vectorstore.add_documents(docs)
 
 def process_image(filepath: Path):
@@ -71,20 +80,16 @@ def process_image(filepath: Path):
         cv2.imwrite(str(segment_path), cropped)
 
         pil_img = Image.fromarray(cropped)
-
-        # Use OCR to extract text
         ocr_text = pytesseract.image_to_string(pil_img).strip()
 
-        # Use LLM to describe the segment if OCR is insufficient
         if len(ocr_text) < 20:
             try:
                 ocr_text = describer(pil_img)[0]['generated_text']
-            except Exception as e:
+            except Exception:
                 ocr_text = "No readable content."
 
         classification = classify_text(ocr_text)
 
-        # Prepare Langchain document
         metadata = {
             "source": str(filepath),
             "segment_path": str(segment_path),
