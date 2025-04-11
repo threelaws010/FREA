@@ -20,7 +20,9 @@ NEO4J_USERNAME = "neo4j"
 NEO4J_PASSWORD = "password"
 
 # Initialize YOLOv5 model (make sure you have the model downloaded)
-yolo = YOLOv5("./yolov5s.pt", device="cuda" if torch.cuda.is_available() else "cpu")
+#yolo = YOLOv5("./yolov5s.pt", device="cuda" if torch.cuda.is_available() else "cpu")
+yolo = YOLOv5("./yolov5s.pt", device="cuda" if torch.version.hip else "cpu")
+
 
 # Initialize LLM image captioning
 describer = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")

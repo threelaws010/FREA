@@ -1,5 +1,6 @@
 # Base image with ROCm support for PyTorch
-FROM rocm/pytorch:rocm5.6_ubuntu20.04_py3.10_pytorch_2.1.0
+FROM rocm/dev-ubuntu-20.04:5.7-complete
+
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -29,12 +30,13 @@ RUN pip install --no-cache-dir \
     transformers \
     unstructured \
     tiktoken
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
 
 # Copy your source code into the container
 COPY . .
 
 # Download YOLOv5s model if needed (optional)
-# RUN python3 -c "import torch; torch.hub.load('ultralytics/yolov5', 'yolov5s', force_reload=True)"
+ RUN python3 -c "import torch; torch.hub.load('ultralytics/yolov5', 'yolov5s', force_reload=True)"
 
 # Default command to run your script
-CMD ["python", "your_script_name.py"]
+CMD ["python", "fileloade.py"]
