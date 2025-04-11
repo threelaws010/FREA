@@ -13,6 +13,8 @@ from transformers import pipeline
 import pytesseract
 import re
 import streamlit as st
+import threading
+import time
 
 # Setup paths and environment
 INPUT_DIR = Path("./data")
@@ -135,10 +137,24 @@ def show_dashboard():
     else:
         st.info("No files vectorized yet.")
 
+def run_idle_vectorization():
+    while True:
+        if not any([cv2.waitKey(1) & 0xFF == ord('q')]):  # crude idle check
+            for filepath in INPUT_DIR.glob("**/*"):
+                if filepath.is_file():
+                    try:
+                        print(f"Processing {filepath}")
+                        process_document(filepath)
+                    except Exception as e:
+                        print(f"Failed to process {filepath}: {e}")
+        time.sleep(60)
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "dashboard":
         show_dashboard()
+    elif len(sys.argv) > 1 and sys.argv[1] == "idle":
+        run_idle_vectorization()
     else:
         for filepath in INPUT_DIR.glob("**/*"):
             if filepath.is_file():
