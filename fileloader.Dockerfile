@@ -26,7 +26,8 @@ RUN python3.10 -m pip install --upgrade pip && \
     opencv-python \
     transformers \
     unstructured \
-    tiktoken
+    tiktoken \
+    streamlit
 
 
 # Copy your source code into the container

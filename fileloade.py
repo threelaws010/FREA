@@ -17,7 +17,7 @@ import time
 from functions.yolo8.segmenter import segment_image
 
 # Setup paths and environment
-INPUT_DIR = Path("./data")
+INPUT_DIR = Path("E:/Astronomy/Envelope102")
 PROCESSED_TRACKER = Path(".processed_files.json")
 NEO4J_URL = "bolt://localhost:7687"
 NEO4J_USERNAME = "neo4j"
