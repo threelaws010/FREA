@@ -1,17 +1,12 @@
-from ultralytics import YOLO
-import torch
+from segmenter import segment_image
+import shutil
+#shutil.rmtree(result["temp_dir"])
 
-# ROCm device setup
-device = "cuda" if torch.version.hip else "cpu"
+result = segment_image(r"E:/Astronomy/Envelope102/Image (16).jpg")
 
-model = YOLO("yolov8l-seg.pt")  # Smallest model for segmentation
-results = model("C:/Users/three/FREA/functions/yolo8/test.jpg", task="segment", device=device)
-results[0].save()  # Save the segmented image
-
-
-print(results[0].boxes)        # bounding boxes
-print(results[0].masks)        # segmentation masks
-print(results[0].names)        # class names
-print(results[0].probs)  
-
-results[0].show()
+print("Segmented image saved to:", result["segmented_image_path"])
+print("Temporary directory:", result["temp_dir"])
+print("Detected objects:")
+for box in result["boxes"]:
+    class_name = result["class_names"][box["class_id"]]
+    print(f" - {class_name} ({box['confidence']:.2f}): {box}")
