@@ -8,13 +8,13 @@ from PIL import Image
 import torch
 import cv2
 import numpy as np
-from yolov5 import YOLOv5
 from transformers import pipeline
 import pytesseract
 import re
 import streamlit as st
 import threading
 import time
+from functions.yolo8.segmenter import segment_image
 
 # Setup paths and environment
 INPUT_DIR = Path("./data")
@@ -22,9 +22,6 @@ PROCESSED_TRACKER = Path(".processed_files.json")
 NEO4J_URL = "bolt://localhost:7687"
 NEO4J_USERNAME = "neo4j"
 NEO4J_PASSWORD = "password"
-
-# Initialize YOLOv5 model
-yolo = YOLOv5("./yolov5s.pt", device="cuda" if torch.version.hip else "cpu")
 
 # Initialize LLM image captioning
 describer = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
@@ -59,14 +56,23 @@ def document_already_processed(source_path: str):
 def classify_text(text):
     math_patterns = [r'\\?int', r'sin\\(|cos\\(|tan\\(', r'=\\s*[^ ]+', r'\\d+\\s*[+\-*/^]\\s*\\d+']
     chem_patterns = [r'[A-Z][a-z]?[0-9]*', r'\\+|\\->|\\(|\\)']
+    diagram_keywords = ["diagram", "flowchart", "chart", "illustration"]
+    handwriting_keywords = ["handwriting", "handwritten", "pen", "ink"]
 
     math_score = sum(bool(re.search(p, text)) for p in math_patterns)
     chem_score = sum(bool(re.search(p, text)) for p in chem_patterns)
+    text_lower = text.lower()
+    diagram_score = sum(kw in text_lower for kw in diagram_keywords)
+    handwriting_score = sum(kw in text_lower for kw in handwriting_keywords)
 
-    if math_score > chem_score and math_score > 0:
+    if math_score > max(chem_score, diagram_score, handwriting_score):
         return "math_equation"
-    elif chem_score > math_score and chem_score > 0:
+    elif chem_score > max(math_score, diagram_score, handwriting_score):
         return "chemical_equation"
+    elif diagram_score > 0:
+        return "diagram"
+    elif handwriting_score > 0:
+        return "handwriting"
     return "unknown"
 
 def process_document(filepath: Path):
@@ -78,7 +84,7 @@ def process_document(filepath: Path):
         save_processed(str(filepath))
         return
 
-    if filepath.suffix.lower() == ".jpg":
+    if filepath.suffix.lower() in [".jpg", ".jpeg", ".png"]:
         process_image(filepath)
     else:
         loader = UnstructuredFileLoader(str(filepath))
@@ -90,15 +96,23 @@ def process_document(filepath: Path):
     save_processed(str(filepath))
 
 def process_image(filepath: Path):
-    image = cv2.imread(str(filepath))
-    results = yolo.predict(image)
+    seg_result = segment_image(str(filepath))
+    original_image = cv2.imread(str(filepath))
 
-    for i, det in enumerate(results.xyxy[0]):
-        x1, y1, x2, y2, conf, cls = det[:6]
-        x1, y1, x2, y2 = map(int, (x1, y1, x2, y2))
-        cropped = image[y1:y2, x1:x2]
+    for i, box in enumerate(seg_result["boxes"]):
+        x1, y1, x2, y2 = map(int, (box["x1"], box["y1"], box["x2"], box["y2"]))
+        cropped = original_image[y1:y2, x1:x2]
+
         segment_path = filepath.with_name(f"{filepath.stem}_seg_{i}.jpg")
         cv2.imwrite(str(segment_path), cropped)
+
+        # Save mask overlay
+        mask = np.array(seg_result["masks"][i], dtype=np.uint8)
+        mask_resized = cv2.resize(mask, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
+        color_mask = np.stack([mask_resized * 255] * 3, axis=-1)
+        overlay = cv2.addWeighted(cropped, 0.8, color_mask, 0.2, 0)
+        overlay_path = filepath.with_name(f"{filepath.stem}_overlay_{i}.jpg")
+        cv2.imwrite(str(overlay_path), overlay)
 
         pil_img = Image.fromarray(cropped)
         ocr_text = pytesseract.image_to_string(pil_img).strip()
@@ -114,11 +128,14 @@ def process_image(filepath: Path):
         metadata = {
             "source": str(filepath),
             "segment_path": str(segment_path),
+            "overlay_path": str(overlay_path),
             "bounding_box": [x1, y1, x2, y2],
+            "confidence": box["confidence"],
+            "class_name": seg_result["class_names"][box["class_id"]],
             "classification": classification
         }
-        langchain_doc = [{"page_content": ocr_text, "metadata": metadata}]
 
+        langchain_doc = [{"page_content": ocr_text, "metadata": metadata}]
         vectorstore.add_documents(langchain_doc)
 
 def show_dashboard():
@@ -139,7 +156,7 @@ def show_dashboard():
 
 def run_idle_vectorization():
     while True:
-        if not any([cv2.waitKey(1) & 0xFF == ord('q')]):  # crude idle check
+        if not any([cv2.waitKey(1) & 0xFF == ord('q')]):
             for filepath in INPUT_DIR.glob("**/*"):
                 if filepath.is_file():
                     try:
