@@ -29,6 +29,8 @@ RUN python3.10 -m pip install --upgrade pip && \
     tiktoken \
     streamlit
 
+RUN  pip show torch torchvision    
+
 
 # Copy your source code into the container
 COPY . .
