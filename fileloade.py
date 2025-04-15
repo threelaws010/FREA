@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 from pathlib import Path
 from langchain_community.document_loaders import UnstructuredFileLoader, UnstructuredImageLoader
@@ -15,6 +16,8 @@ import streamlit as st
 import threading
 import time
 from functions.yolo8.segmenter import segment_image
+
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 # Setup paths and environment
 INPUT_DIR = Path("E:/Astronomy/Envelope102")

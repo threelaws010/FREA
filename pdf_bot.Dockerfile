@@ -8,6 +8,12 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip install hf_xet
+RUN pip install huggingface_hub[hf_xet]
+RUN pip install --upgrade torch torchvision
+
+
+
 COPY requirements.txt .
 
 RUN pip install --upgrade -r requirements.txt

@@ -1,6 +1,10 @@
 # Base image with ROCm support for PyTorch
 FROM rocm/dev-ubuntu-20.04:5.7-complete
 
+RUN mkdir -p functions/yolo8 && \
+    touch functions/__init__.py && \
+    touch functions/yolo8/__init__.py
+
 
 # Install Python 3.10
 RUN apt-get update && \
@@ -36,7 +40,7 @@ RUN  pip show torch torchvision
 COPY . .
 
 # Download YOLOv5s model if needed (optional)
- RUN python3 -c "import torch; torch.hub.load('ultralytics/yolov5', 'yolov5s', force_reload=True)"
+ #RUN python3 -c "import torch; torch.hub.load('ultralytics/yolov5', 'yolov5s', force_reload=True)"
 
 # Default command to run your script
 CMD ["python3", "fileloade.py"]
