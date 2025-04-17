@@ -37,7 +37,9 @@ RUN  pip show torch torchvision
 
 
 # Copy your source code into the container
-COPY . .
+COPY . /app
+
+
 
 # Download YOLOv5s model if needed (optional)
  #RUN python3 -c "import torch; torch.hub.load('ultralytics/yolov5', 'yolov5s', force_reload=True)"
