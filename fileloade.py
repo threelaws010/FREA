@@ -3,8 +3,8 @@ import sys
 import json
 from pathlib import Path
 from langchain_community.document_loaders import UnstructuredFileLoader, UnstructuredImageLoader
-from langchain_community.vectorstores import Neo4jVector
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
+from langchain_neo4j import Neo4jVector
 from PIL import Image
 import torch
 import cv2
@@ -15,17 +15,13 @@ import re
 import streamlit as st
 import threading
 import time
-from functions.yolo8.segmenter import segment_image
 from flask import Flask
-import threading
+from functions.yolo8.segmenter import segment_image
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from dotenv import load_dotenv
-load_dotenv()
-
 # Setup paths and environment
-INPUT_DIR = Path("E:/Astronomy/Envelope102")
+INPUT_DIR = Path("C:/filetest")
 PROCESSED_TRACKER = Path(".processed_files.json")
 NEO4J_URL = "bolt://localhost:7687"
 NEO4J_USERNAME = "neo4j"
@@ -114,7 +110,6 @@ def process_image(filepath: Path):
         segment_path = filepath.with_name(f"{filepath.stem}_seg_{i}.jpg")
         cv2.imwrite(str(segment_path), cropped)
 
-        # Save mask overlay
         mask = np.array(seg_result["masks"][i], dtype=np.uint8)
         mask_resized = cv2.resize(mask, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
         color_mask = np.stack([mask_resized * 255] * 3, axis=-1)
@@ -174,22 +169,20 @@ def run_idle_vectorization():
                         print(f"Failed to process {filepath}: {e}")
         time.sleep(60)
 
-def start_health_server():
-    threading.Thread(
-        target=lambda: health_app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False),
-        daemon=True
-    ).start()
-
+# Health check server
 health_app = Flask(__name__)
 
 @health_app.route("/health", methods=["GET"])
 def health():
     return "ok", 200
 
-if __name__ == "__main__":
-    import sys
-    
+def start_health_server():
+    threading.Thread(
+        target=lambda: health_app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False),
+        daemon=True
+    ).start()
 
+if __name__ == "__main__":
     start_health_server()
 
     if len(sys.argv) > 1 and sys.argv[1] == "dashboard":
