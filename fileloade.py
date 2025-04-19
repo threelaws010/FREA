@@ -16,8 +16,13 @@ import streamlit as st
 import threading
 import time
 from functions.yolo8.segmenter import segment_image
+from flask import Flask
+import threading
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+from dotenv import load_dotenv
+load_dotenv()
 
 # Setup paths and environment
 INPUT_DIR = Path("E:/Astronomy/Envelope102")
@@ -169,8 +174,24 @@ def run_idle_vectorization():
                         print(f"Failed to process {filepath}: {e}")
         time.sleep(60)
 
+def start_health_server():
+    threading.Thread(
+        target=lambda: health_app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False),
+        daemon=True
+    ).start()
+
+health_app = Flask(__name__)
+
+@health_app.route("/health", methods=["GET"])
+def health():
+    return "ok", 200
+
 if __name__ == "__main__":
     import sys
+    
+
+    start_health_server()
+
     if len(sys.argv) > 1 and sys.argv[1] == "dashboard":
         show_dashboard()
     elif len(sys.argv) > 1 and sys.argv[1] == "idle":
