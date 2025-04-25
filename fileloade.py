@@ -21,12 +21,12 @@ from functions.yolo8.segmenter import segment_image
 # Constants
 INPUT_DIR = Path("/data/input")
 PROCESSED_TRACKER = Path("/data/.processed_files.json")
-NEO4J_URL = "bolt://localhost:7687"
+NEO4J_URL = "bolt://host.docker.internal:7687"
 NEO4J_USERNAME = "neo4j"
 NEO4J_PASSWORD = "password"
 
 # Initialize services
-describer = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
+describer = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base", use_fast=True)
 embedding_model = OpenAIEmbeddings()
 vectorstore = Neo4jVector(
     url=NEO4J_URL,
