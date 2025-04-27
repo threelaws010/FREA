@@ -260,7 +260,6 @@ def process_image(image_path, output_dir, unknowns_log_path):
             f.write("---\n")
 
     write_unknown_segments(unknowns_log_path)
-
 def process_directory(root_dir, output_dir):
     global status_log_path
     root_path = Path(root_dir)
@@ -289,6 +288,27 @@ def process_directory(root_dir, output_dir):
         write_status(path.name, "processing", "Started")
         process_image(path, output_subdir, unknowns_log_path)
         write_status(path.name, "completed", "Finished MD generation")
+# Start processing with file watching
+import time
 
-# Start processing
-process_directory(INPUT_DIR, OUTPUT_DIR)
+def get_all_jpg_files(directory):
+    return {str(f): os.path.getmtime(f) for f in Path(directory).rglob('*.jpg')}
+
+previous_files = get_all_jpg_files(INPUT_DIR)
+
+while True:
+    print("Checking for new or updated files...")
+    current_files = get_all_jpg_files(INPUT_DIR)
+
+    # Compare previous and current
+    new_or_updated = [f for f in current_files if f not in previous_files or current_files[f] != previous_files[f]]
+
+    if new_or_updated:
+        print(f"✅ Found {len(new_or_updated)} new/updated file(s). Running processing...")
+        process_directory(INPUT_DIR, OUTPUT_DIR)
+        previous_files = current_files.copy()
+    else:
+        print("No new files found.")
+
+    print("🕑 Sleeping for 5 minutes...")
+    time.sleep(300)  # Sleep for 5 minutes
