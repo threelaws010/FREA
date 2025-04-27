@@ -1,4 +1,36 @@
 services:
+  image-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile-processor.Dockerfile
+    environment:
+      - INPUT_DIR=${INPUT_DIR}
+      - OUTPUT_DIR=${OUTPUT_DIR}
+      - UNKNOWN_CSV=${UNKNOWN_CSV}
+      - STATUS_CSV=${STATUS_CSV}
+    volumes:
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - net
+
+  status-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile-viewer.Dockerfile
+    environment:
+      - STATUS_CSV=${STATUS_CSV}
+    ports:
+      - "8601:8501"
+    networks:
+      - net
+
   ollama:
     image: ollama/ollama
     ports:
