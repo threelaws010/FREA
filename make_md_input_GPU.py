@@ -20,9 +20,20 @@ UNKNOWN_CSV_FILENAME = os.getenv('UNKNOWN_CSV', 'unknown_segments.csv')
 STATUS_CSV_FILENAME = os.getenv('STATUS_CSV', 'status.csv')
 
 # Setup
+import torch
+
+# Select device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Initialize models
 yolo_model = YOLO('yolov8l-seg.pt')
-ocr_reader = easyocr.Reader(['en'], recog_network='english_g2')
-captioner = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
+yolo_model.to(device)
+ocr_reader = easyocr.Reader(['en'], recog_network='english_g2', gpu=torch.cuda.is_available())
+captioner = pipeline(
+    "image-to-text",
+    model="Salesforce/blip-image-captioning-base",
+    device=0 if torch.cuda.is_available() else -1
+)
 
 # Help Menu
 if '--help' in sys.argv:
@@ -249,7 +260,7 @@ def process_image(image_path, output_dir, unknowns_log_path):
             f.write("---\n")
 
     write_unknown_segments(unknowns_log_path)
-    
+
 def process_directory(root_dir, output_dir):
     global status_log_path
     root_path = Path(root_dir)
@@ -278,7 +289,6 @@ def process_directory(root_dir, output_dir):
         write_status(path.name, "processing", "Started")
         process_image(path, output_subdir, unknowns_log_path)
         write_status(path.name, "completed", "Finished MD generation")
-
 
 # Start processing
 process_directory(INPUT_DIR, OUTPUT_DIR)
