@@ -22,8 +22,32 @@ STATUS_CSV_FILENAME = os.getenv('STATUS_CSV', 'status.csv')
 # Setup
 import torch
 
-# Select device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Smart device selection (Nvidia, AMD ROCm, or CPU)
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif hasattr(torch.version, "hip") and torch.version.hip:
+    device = torch.device("cuda")  # AMD ROCm shows as "cuda"
+else:
+    device = torch.device("cpu")
+
+print(f"Selected device: {device}")
+
+# Initialize models
+yolo_model = YOLO('yolov8l-seg.pt')
+yolo_model.to(device)
+
+ocr_reader = easyocr.Reader(
+    ['en'],
+    recog_network='english_g2',
+    gpu=(device.type == "cuda")
+)
+
+captioner = pipeline(
+    "image-to-text",
+    model="Salesforce/blip-image-captioning-base",
+    device=0 if device.type == "cuda" else -1
+)
+
 
 # Initialize models
 yolo_model = YOLO('yolov8l-seg.pt')
@@ -310,5 +334,5 @@ while True:
     else:
         print("No new files found.")
 
-    print("🕑 Sleeping for 5 minutes...")
-    time.sleep(300)  # Sleep for 5 minutes
+    print("🕑 Sleeping for 2 minutes...")
+    time.sleep(120)  # Sleep for 2 minutes

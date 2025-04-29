@@ -120,19 +120,19 @@ services:
     networks:
       - net
 
-  image-processor:
-    build:
-      context: .
-      dockerfile: Dockerfile-processor.Dockerfile
-    environment:
-      - INPUT_DIR=${INPUT_DIR}
-      - OUTPUT_DIR=${OUTPUT_DIR}
-      - UNKNOWN_CSV=${UNKNOWN_CSV}
-      - STATUS_CSV=${STATUS_CSV}
-    volumes:
-      - ./data:/app/data
-    networks:
-      - net
+  #image-processor:
+  #  build:
+  #    context: .
+   #   dockerfile: Dockerfile-processor.Dockerfile
+  #  environment:
+  #    - INPUT_DIR=${INPUT_DIR}
+   #   - OUTPUT_DIR=${OUTPUT_DIR}
+   #   - UNKNOWN_CSV=${UNKNOWN_CSV}
+   #   - STATUS_CSV=${STATUS_CSV}
+   # volumes:
+   #   - ./data:/app/data
+   # networks:
+   #   - net
 
   status-viewer:
     build:

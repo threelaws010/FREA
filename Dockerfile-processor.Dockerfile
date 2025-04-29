@@ -1,15 +1,17 @@
 FROM python:3.10-bullseye
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y libglib2.0-0 libgl1-mesa-glx wget git && apt-get clean
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    && rm -rf /var/lib/apt/lists/*
 
+# Install torch with ROCm if available
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.6
+RUN pip install easyocr transformers ultralytics streamlit  # Add others as needed
+
+# Copy your app code
+COPY . /app
 WORKDIR /app
 
-COPY . .
-
-RUN pip install --upgrade pip
-RUN pip install ultralytics opencv-python easyocr python-dotenv torch torchvision torchaudio transformers accelerate
-
-EXPOSE 8501
-
-CMD ["python3", "make_md_input_GPU.py"]
-
+# Start your app
+CMD ["python", "make_md_input_GPU.py"]
