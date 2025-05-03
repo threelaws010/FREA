@@ -59,11 +59,9 @@ ocr_reader = easyocr.Reader(['en'], recog_network='english_g2', gpu=(device.type
 captioner = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base", device=0 if device.type == "cuda" else -1)
 
 def ensure_csv_exists(filename, headers):
-    path = Path(filename)
-    if not path.exists():
+    if not os.path.exists(filename):
         print(f"Creating missing CSV file: {filename}")
-        path.parent.mkdir(parents=True, exist_ok=True)  # Create directory if needed
-        with open(path, 'w', newline='', encoding='utf-8') as csvfile:
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(headers)
 
@@ -306,22 +304,37 @@ def process_directory(root_dir, output_dir):
         process_image(path, output_subdir, unknowns_log_path)
         write_status(path.name, current_hash, "completed", "Finished MD generation")
 
+
+import ctypes
+
+def user_is_active():
+    class LASTINPUTINFO(ctypes.Structure):
+        _fields_ = [('cbSize', ctypes.c_uint), ('dwTime', ctypes.c_uint)]
+    lii = LASTINPUTINFO()
+    lii.cbSize = ctypes.sizeof(lii)
+    if ctypes.windll.user32.GetLastInputInfo(ctypes.byref(lii)):
+        millis = ctypes.windll.kernel32.GetTickCount() - lii.dwTime
+        return millis < (30 * 1000)  # 30 seconds = user active
+    return False
+
+def sleep_smart():
+    if user_is_active():
+        print("👆 User active — sleeping 2 minutes...")
+        sleep_smart()
+    else:
+        print("😴 No activity — sleeping 10 seconds...")
+        time.sleep(10)
+
 def get_all_jpg_files(directory):
     return {str(f): os.path.getmtime(f) for f in Path(directory).rglob('*.jpg')}
 
 previous_files = get_all_jpg_files(INPUT_DIR)
-print("previous_files")
-print(previous_files)
 
 while True:
     print("Checking for new or updated files...")
     current_files = get_all_jpg_files(INPUT_DIR)
-    print("current_files")
-    print(current_files)
 
     new_or_updated = [f for f in current_files if f not in previous_files or current_files[f] != previous_files[f]]
-    print("new_or_updated")
-    print(new_or_updated)
 
     if new_or_updated:
         print(f"✅ Found {len(new_or_updated)} new/updated file(s). Running processing...")
@@ -331,4 +344,4 @@ while True:
         print("No new files found.")
 
     print("🕑 Sleeping for 2 minutes...")
-    time.sleep(15)
+    #sleep_smart()

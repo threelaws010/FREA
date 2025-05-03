@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Status Dashboard</title>
+  <script>
+    async function loadCSV() {
+      const response = await fetch('status.csv');
+      const text = await response.text();
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',');
+      const tableBody = document.getElementById('statusBody');
+      tableBody.innerHTML = '';
+      for (let i = 1; i < lines.length; i++) {
+        const row = document.createElement('tr');
+        const cells = lines[i].split(',');
+        for (let j = 0; j < cells.length; j++) {
+          const cell = document.createElement('td');
+          cell.textContent = cells[j];
+          row.appendChild(cell);
+        }
+        tableBody.appendChild(row);
+      }
+    }
+    setInterval(loadCSV, 10000);
+    window.onload = loadCSV;
+  </script>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; background: #f9f9f9; }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    th, td { border: 1px solid #ccc; padding: 0.5rem 1rem; text-align: left; }
+    th { background: #f1f1f1; }
+  </style>
+</head>
+<body>
+  <h1>📊 File Processing Status</h1>
+  <table>
+    <thead>
+      <tr><th>Image</th><th>Hash</th><th>Status</th><th>Note</th></tr>
+    </thead>
+    <tbody id="statusBody"></tbody>
+  </table>
+</body>
+</html>
