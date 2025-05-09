@@ -21,6 +21,11 @@ OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'E:/test/MD')
 UNKNOWN_CSV_FILENAME = os.getenv('UNKNOWN_CSV', 'unknown_segments.csv')
 STATUS_CSV_FILENAME = os.getenv('STATUS_CSV', 'status.csv')
 
+
+print(f"Loaded INPUT_DIR={INPUT_DIR}")
+print(f"Directory exists? {Path(INPUT_DIR).exists()}")
+print(f"Contains files? {[f for f in Path(INPUT_DIR).rglob('*') if f.is_file()]}")
+
 force = '--force' in sys.argv
 cutoff_date = None
 y_thresh = 30
@@ -46,12 +51,17 @@ if '--sleep' in sys.argv:
         sys.exit(1)
 
 if use_rocm and hasattr(torch.version, "hip") and torch.version.hip:
+    print("🟣 ROCm detected.")
     device = torch.device("cuda")
 elif torch.cuda.is_available():
+    print("🟢 CUDA GPU detected.")
     device = torch.device("cuda")
 else:
+    print("⚪ No GPU available. Falling back to CPU.")
     device = torch.device("cpu")
+
 print(f"Selected device: {device}")
+
 
 yolo_model = YOLO('yolov8l-seg.pt')
 yolo_model.to(device)
@@ -289,22 +299,24 @@ def process_directory(root_dir, output_dir):
 
     status_data = read_status_csv(status_log_path)
 
-    for path in root_path.rglob('*.jpg'):
-        relative_path = path.relative_to(root_path).parent
-        output_subdir = output_path / relative_path
-        md_path = output_subdir / (path.stem + ".md")
+    for ext in ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']:
+        for path in root_path.rglob(ext):
 
-        current_hash = file_hash(path)
-        prev = status_data.get(path.name)
-        if prev and prev['hash'] == current_hash and not force:
-            print(f"Skipping (already processed and hash matched): {path}")
-            write_status(path.name, current_hash, "skipped", "Hash match")
-            continue
+            relative_path = path.relative_to(root_path).parent
+            output_subdir = output_path / relative_path
+            md_path = output_subdir / (path.stem + ".md")
 
-        print(f"Processing: {path}")
-        write_status(path.name, current_hash, "processing", "Started")
-        process_image(path, output_subdir, unknowns_log_path)
-        write_status(path.name, current_hash, "completed", "Finished MD generation")
+            current_hash = file_hash(path)
+            prev = status_data.get(path.name)
+            if prev and prev['hash'] == current_hash and not force:
+                print(f"Skipping (already processed and hash matched): {path}")
+                write_status(path.name, current_hash, "skipped", "Hash match")
+                continue
+
+            print(f"Processing: {path}")
+            write_status(path.name, current_hash, "processing", "Started")
+            process_image(path, output_subdir, unknowns_log_path)
+            write_status(path.name, current_hash, "completed", "Finished MD generation")
 
 def get_all_jpg_files(directory):
     return {str(f): os.path.getmtime(f) for f in Path(directory).rglob('*.jpg')}

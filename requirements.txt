@@ -9,11 +9,11 @@ pydantic
 uvicorn
 sse-starlette
 boto3
-streamlit==1.32.1
-langchain-google-genai==2.0.3
-langchain-ollama==0.2.0
-langchain-huggingface==0.1.1
-langchain-aws==0.2.4
+streamlit
+langchain-google-genai
+langchain-ollama
+langchain-huggingface
+langchain-aws
 langchain-ollama
 langchain
 langchain-openai
