@@ -17,12 +17,12 @@ import time
 import torch
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
-
-INPUT_DIR = os.getenv('INPUT_DIR', 'E:/test/sample')
-OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'E:/test/MD')
-UNKNOWN_CSV_FILENAME = os.getenv('UNKNOWN_CSV', 'unknown_segments.csv')
-STATUS_CSV_FILENAME = os.getenv('STATUS_CSV', 'status.csv')
-
+load_dotenv()
+# Normalize to absolute paths
+INPUT_DIR = os.getenv('INPUT_DIR')
+OUTPUT_DIR = os.getenv('OUTPUT_DIR')
+UNKNOWN_CSV_FILENAME = os.getenv('UNKNOWN_CSV')
+STATUS_CSV_FILENAME = os.getenv('STATUS_CSV')
 
 #print(f"Loaded INPUT_DIR={INPUT_DIR}")
 #print(f"Directory exists? {Path(INPUT_DIR).exists()}")
@@ -375,7 +375,10 @@ while True:
     if new_or_updated or force:
         if force:
             print(f"⚡ Force mode enabled: Reprocessing all files.")
-            files_to_process = [str(p) for p in Path(INPUT_DIR).rglob('*.jpg')]
+            files_to_process = []
+            for ext in ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']:
+                files_to_process.extend([str(p) for p in Path(INPUT_DIR).rglob(ext)])
+
         else:
             print(f"✅ Found {len(new_or_updated)} new/updated file(s). Running processing...")
             files_to_process = new_or_updated
