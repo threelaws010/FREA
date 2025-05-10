@@ -15,6 +15,8 @@ from PIL import Image
 from transformers import pipeline
 import time
 import torch
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+
 
 INPUT_DIR = os.getenv('INPUT_DIR', 'E:/test/sample')
 OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'E:/test/MD')
@@ -22,9 +24,9 @@ UNKNOWN_CSV_FILENAME = os.getenv('UNKNOWN_CSV', 'unknown_segments.csv')
 STATUS_CSV_FILENAME = os.getenv('STATUS_CSV', 'status.csv')
 
 
-print(f"Loaded INPUT_DIR={INPUT_DIR}")
-print(f"Directory exists? {Path(INPUT_DIR).exists()}")
-print(f"Contains files? {[f for f in Path(INPUT_DIR).rglob('*') if f.is_file()]}")
+#print(f"Loaded INPUT_DIR={INPUT_DIR}")
+#print(f"Directory exists? {Path(INPUT_DIR).exists()}")
+#print(f"Contains files? {[f for f in Path(INPUT_DIR).rglob('*') if f.is_file()]}")
 
 force = '--force' in sys.argv
 cutoff_date = None
@@ -65,8 +67,21 @@ print(f"Selected device: {device}")
 
 yolo_model = YOLO('yolov8l-seg.pt')
 yolo_model.to(device)
-ocr_reader = easyocr.Reader(['en'], recog_network='english_g2', gpu=(device.type == "cuda"))
+#ocr_reader = easyocr.Reader(['en'], recog_network='english_g2', gpu=(device.type == "cuda"))
+processor = TrOCRProcessor.from_pretrained('microsoft/trocr-base-handwritten')
+model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-base-handwritten')
+model = model.to(device)
 captioner = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base", device=0 if device.type == "cuda" else -1)
+
+def trocr_ocr(image_crop):
+    image_pil = Image.fromarray(cv2.cvtColor(image_crop, cv2.COLOR_BGR2RGB))
+    pixel_values = processor(images=image_pil, return_tensors="pt").pixel_values.to(device)
+    generated_ids = model.generate(pixel_values)
+    transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    return transcription
+
+
+
 
 def ensure_csv_exists(filename, headers):
     path = Path(filename)
@@ -211,57 +226,69 @@ def write_unknown_segments(unknowns_log_path):
                 writer.writerow(item)
 
 def process_image(image_path, output_dir, unknowns_log_path):
+    import numpy as np
+
     img = cv2.imread(str(image_path))
-    results = yolo_model(img, conf=0.25)
+    results = yolo_model(img, conf=0.20, iou=0.5)  # lowered conf, tuned IoU
 
     segments_info = []
     text_found = False
 
-    for idx, result in enumerate(results):
-        for box in result.boxes:
-            cls_id = int(box.cls[0])
-            conf = float(box.conf[0])
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            crop = img[y1:y2, x1:x2]
+    for result in results:
+        if hasattr(result, 'masks') and result.masks is not None:
+            for idx, mask in enumerate(result.masks.xy):
+                mask_np = np.array(mask, dtype=np.int32)
+                mask_img = np.zeros(img.shape[:2], dtype=np.uint8)
+                cv2.fillPoly(mask_img, [mask_np], 255)
 
-            if cls_id == 0:
-                crop_processed = preprocess_for_ocr(crop)
-                text_results = ocr_reader.readtext(crop_processed, detail=1)
-                texts = [r[1] for r in text_results]
-                content = '\n'.join(texts)
-                type_detected = "Text or Handwriting"
-                text_found = True
-            elif cls_id == 1:
-                description = describe_image(crop)
-                content = f"[Diagram Description]: {description}"
-                type_detected = "Diagram"
-            elif cls_id == 2:
-                content = "[Chemical Formula detected]"
-                type_detected = "Chemical Formula"
-            elif cls_id == 3:
-                content = "[Math Formula detected]"
-                type_detected = "Math Formula"
-            else:
-                content = "[Unknown segment]"
-                type_detected = "Unknown"
-                unknown_segments.append({
-                    "markdown_file": str(output_dir / (image_path.stem + ".md")),
-                    "original_image": str(image_path),
-                    "coordinates": (x1, y1, x2, y2)
+                # apply mask to image
+                masked_crop = cv2.bitwise_and(img, img, mask=mask_img)
+
+                # find bounding box for cropping
+                x, y, w, h = cv2.boundingRect(mask_np)
+                crop = masked_crop[y:y+h, x:x+w]
+
+                # Skip very small crops
+                if w < 5 or h < 5:
+                    continue
+
+                cls_id = int(result.boxes.cls[idx])
+                conf = float(result.boxes.conf[idx])
+
+                if cls_id == 0:
+                    content = trocr_ocr(crop)
+                    type_detected = "Text or Handwriting"
+                    text_found = True
+                elif cls_id == 1:
+                    description = describe_image(crop)
+                    content = f"[Diagram Description]: {description}"
+                    type_detected = "Diagram"
+                elif cls_id == 2:
+                    content = "[Chemical Formula detected]"
+                    type_detected = "Chemical Formula"
+                elif cls_id == 3:
+                    content = "[Math Formula detected]"
+                    type_detected = "Math Formula"
+                else:
+                    content = "[Unknown segment]"
+                    type_detected = "Unknown"
+                    unknown_segments.append({
+                        "markdown_file": str(output_dir / (image_path.stem + ".md")),
+                        "original_image": str(image_path),
+                        "coordinates": (x, y, x+w, y+h)
+                    })
+
+                segments_info.append({
+                    "type": type_detected,
+                    "content": content,
+                    "coordinates": (x, y, x+w, y+h),
+                    "confidence": conf,
+                    "additional_description": additional_description(type_detected, content)
                 })
 
-            segments_info.append({
-                "type": type_detected,
-                "content": content,
-                "coordinates": (x1, y1, x2, y2),
-                "confidence": conf,
-                "additional_description": additional_description(type_detected, content)
-            })
-
     if not text_found:
-        full_text_results = ocr_reader.readtext(img, detail=1)
-        full_texts = [r[1] for r in full_text_results]
-        content = '\n'.join(full_texts)
+        # fallback OCR over full image
+        content = trocr_ocr(img)
         segments_info.append({
             "type": "Full Image Text or Handwriting (Fallback)",
             "content": content,
@@ -289,6 +316,20 @@ def process_image(image_path, output_dir, unknowns_log_path):
             f.write("---\n")
 
     write_unknown_segments(unknowns_log_path)
+
+
+def trocr_ocr(image_crop):
+    try:
+        image_pil = Image.fromarray(cv2.cvtColor(image_crop, cv2.COLOR_BGR2RGB))
+        pixel_values = processor(images=image_pil, return_tensors="pt").pixel_values.to(device)
+        generated_ids = model.generate(pixel_values, max_new_tokens=512)
+        transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        if not transcription.strip():
+            return "[Empty Text Detected]"
+        return transcription
+    except Exception as e:
+        print(f"⚠️ TrOCR OCR failed: {e}")
+        return "[OCR Failed]"
 
 def process_directory(root_dir, output_dir):
     global status_log_path
@@ -328,19 +369,39 @@ print(previous_files)
 while True:
     print("Checking for new or updated files...")
     current_files = get_all_jpg_files(INPUT_DIR)
-    print("current_files")
-    print(current_files)
 
     new_or_updated = [f for f in current_files if f not in previous_files or current_files[f] != previous_files[f]]
-    print("new_or_updated")
-    print(new_or_updated)
 
-    if new_or_updated:
-        print(f"✅ Found {len(new_or_updated)} new/updated file(s). Running processing...")
-        process_directory(INPUT_DIR, OUTPUT_DIR)
+    if new_or_updated or force:
+        if force:
+            print(f"⚡ Force mode enabled: Reprocessing all files.")
+            files_to_process = [str(p) for p in Path(INPUT_DIR).rglob('*.jpg')]
+        else:
+            print(f"✅ Found {len(new_or_updated)} new/updated file(s). Running processing...")
+            files_to_process = new_or_updated
+
+        for file_path in files_to_process:
+            path = Path(file_path)
+            relative_path = path.relative_to(INPUT_DIR).parent
+            output_subdir = Path(OUTPUT_DIR) / relative_path
+
+            print(f"Processing file: {path}")
+            process_image(path, output_subdir, Path(INPUT_DIR) / UNKNOWN_CSV_FILENAME)
+
+            current_hash = file_hash(path)
+            write_status(path.name, current_hash, "completed", "Finished MD generation")
+
         previous_files = current_files.copy()
+
+        # ➡️ Exit if we were running in --force mode
+        if force:
+            print("✅ Force mode finished. Exiting program.")
+            break
+
     else:
         print("No new files found.")
 
-    print("🕑 Sleeping for 2 minutes...")
-    time.sleep(15)
+    print(f"🕑 Sleeping for {sleep_minutes} minutes...")
+    time.sleep(sleep_minutes * 60)
+
+
