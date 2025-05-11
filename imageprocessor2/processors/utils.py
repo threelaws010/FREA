@@ -1,6 +1,31 @@
 from PIL import Image, ImageDraw
 import os
 
+import re
+
+def classify_text(text):
+    """
+    Classify text as 'Math', 'Chemical', or 'Text'
+    """
+    math_patterns = [
+        r'[\d\w\s\+\-\*\/\^\=\(\)\[\]]+',   # simple math patterns
+        r'(sin|cos|tan|log|sqrt)',           # common math functions
+    ]
+    chemical_patterns = [
+        r'^[A-Z][a-z]?[0-9]?[A-Z]?[a-z]?[0-9]*',  # basic chemical formulas
+        r'->',                                    # chemical reaction arrow
+    ]
+
+    for pattern in chemical_patterns:
+        if re.search(pattern, text):
+            return 'Chemical'
+
+    for pattern in math_patterns:
+        if re.search(pattern, text):
+            return 'Math'
+
+    return 'Text'
+
 class ImageUtils:
     @staticmethod
     def load_image(image_path):

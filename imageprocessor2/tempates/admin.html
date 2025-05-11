@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+</head>
+<body>
+    <h1>Admin Panel</h1>
+
+    <h2>Set Parameters</h2>
+    <form method="POST">
+        <label>Confidence Threshold:</label><br>
+        <input type="text" name="conf_threshold" value="{{ config.conf_threshold }}"><br><br>
+
+        <label>Max Segments:</label><br>
+        <input type="text" name="max_segments" value="{{ config.max_segments }}"><br><br>
+
+        <label>Min Size:</label><br>
+        <input type="text" name="min_size" value="{{ config.min_size }}"><br><br>
+
+        <button type="submit">Save</button>
+    </form>
+
+    <hr>
+
+    <h2>Activity Log</h2>
+    <pre>
+    {% for line in log_lines %}
+{{ line }}
+    {% endfor %}
+    </pre>
+</body>
+</html>
