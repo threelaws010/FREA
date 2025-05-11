@@ -1,4 +1,3 @@
-
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import torch
 
