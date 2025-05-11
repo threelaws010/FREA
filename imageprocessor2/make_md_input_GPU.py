@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
 import torch
+import json
 
 load_dotenv()
 
@@ -25,9 +26,12 @@ if len(sys.argv) > 1:
 
 force = '--force' in sys.argv
 
-conf_threshold = 0.25
-max_segments = None
-min_size = 0
+with open('config.json') as f:
+    config = json.load(f)
+
+conf_threshold = config.get('conf_threshold', 0.25)
+max_segments = config.get('max_segments', None)
+min_size = config.get('min_size', 0)
 
 for arg in sys.argv:
     if arg.startswith('--conf='):
