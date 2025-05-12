@@ -1,13 +1,13 @@
 import os
-from langchain.document_loaders import TextLoader
+from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain.vectorstores import Neo4jVector
+from langchain_ollama import OllamaEmbeddings
+from langchain_neo4j import Neo4jVector
 
 # --- Neo4j Connection Settings ---
 NEO4J_URL = "bolt://localhost:7687"
 NEO4J_USERNAME = "neo4j"
-NEO4J_PASSWORD = "your_password"
+NEO4J_PASSWORD = "frea_password"  # 🔥 IMPORTANT: Change this to your real password
 
 # --- Embeddings and Vectorstore setup ---
 embedding_model = OllamaEmbeddings(model="llama3")
