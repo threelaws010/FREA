@@ -1,10 +1,14 @@
 import os
+from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings
 import pickle
 
+# Load environment variables from .env file
+load_dotenv()
+OUTPUT_DIR = os.getenv("OUTPUT_DIR", "../MS")
 VECTOR_STORE_PATH = "./faiss_index"
 
 print("🔁 Checking embedding model...")
@@ -33,7 +37,7 @@ def store_file(file_path, vectorstore):
     print(f"✅ File {file_path} inserted into FAISS!")
     return vectorstore
 
-def process_all_md_files(folder_path="../MS"):
+def process_all_md_files(folder_path=OUTPUT_DIR):
     if not os.path.exists(folder_path):
         print(f"❌ Folder not found: {folder_path}")
         return
@@ -60,6 +64,6 @@ def load_vectorstore():
 
 if __name__ == "__main__":
     try:
-        process_all_md_files("/home/frea/MS")
+        process_all_md_files()
     except Exception as e:
         print(f"❌ Uncaught error: {e}")
