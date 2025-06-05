@@ -3,6 +3,7 @@ import time
 import subprocess
 from dotenv import load_dotenv
 
+
 # Requires `pyxhook` on Linux or `pynput` on Windows/macOS
 import ctypes
 import platform
