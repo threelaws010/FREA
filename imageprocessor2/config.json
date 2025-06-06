@@ -1,0 +1,5 @@
+{
+  "conf_threshold": 0.25,
+  "max_segments": null,
+  "min_size": 0
+}
