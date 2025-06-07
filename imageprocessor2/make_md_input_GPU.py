@@ -27,6 +27,7 @@ if len(sys.argv) > 1:
         mode = 'ocr'
 
 force = '--force' in sys.argv
+no_segmentation = '--no-segmentation' in sys.argv
 
 # === LOAD CONFIG WITH ERROR HANDLING ===
 try:
@@ -76,9 +77,12 @@ for img_path in tqdm(all_images, desc="Processing Images"):
 
     print(f"\n📷 Processing: {img_path}")
     try:
-        segments = segmenter.segment(str(img_path))
         image = ImageUtils.load_image(str(img_path))
-
+        if no_segmentation:
+            print("🛑 Skipping segmentation; using full image.")
+            segments = [[0, 0, image.width, image.height]]
+        else:
+            segments = segmenter.segment(str(img_path))
         if not segments:
             print("⚠️ No segments found, defaulting to whole image.")
             segments = [[0, 0, image.width, image.height]]

@@ -6,7 +6,7 @@ class OCRReader:
     def __init__(self, model_name='microsoft/trocr-base-handwritten', device=None):
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.device = device
+        self.device = "cpu"
         self.processor = TrOCRProcessor.from_pretrained(model_name)
         self.model = VisionEncoderDecoderModel.from_pretrained(model_name).to(self.device)
 
