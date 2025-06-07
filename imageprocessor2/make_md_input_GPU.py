@@ -1,14 +1,16 @@
 import os
 import sys
-from processors.segmentation import ImageSegmenter
-from processors.ocr import OCRReader
-from processors.captioning import ImageCaptioner
-from processors.utils import ImageUtils
 from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
 import torch
 import json
+import traceback  # NEW: for detailed error output
+
+from processors.segmentation import ImageSegmenter
+from processors.ocr import OCRReader
+from processors.captioning import ImageCaptioner
+from processors.utils import ImageUtils
 
 load_dotenv()
 
@@ -26,29 +28,36 @@ if len(sys.argv) > 1:
 
 force = '--force' in sys.argv
 
-with open('config.json') as f:
-    config = json.load(f)
+# === LOAD CONFIG WITH ERROR HANDLING ===
+try:
+    with open('config.json') as f:
+        config = json.load(f)
+except Exception as e:
+    print("❌ Error loading config.json:")
+    traceback.print_exc()
+    sys.exit(1)
 
 conf_threshold = config.get('conf_threshold', 0.25)
 max_segments = config.get('max_segments', None)
 min_size = config.get('min_size', 0)
 
+# Override config from CLI args
 for arg in sys.argv:
     if arg.startswith('--conf='):
         try:
             conf_threshold = float(arg.split('=')[1])
         except ValueError:
-            pass
+            print("⚠️ Invalid --conf value.")
     if arg.startswith('--max-segments='):
         try:
             max_segments = int(arg.split('=')[1])
         except ValueError:
-            pass
+            print("⚠️ Invalid --max-segments value.")
     if arg.startswith('--min-size='):
         try:
             min_size = int(arg.split('=')[1])
         except ValueError:
-            pass
+            print("⚠️ Invalid --min-size value.")
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 segmenter = ImageSegmenter(device=device, conf_threshold=conf_threshold, max_segments=max_segments, min_size=min_size)
@@ -65,12 +74,13 @@ for img_path in tqdm(all_images, desc="Processing Images"):
         print(f"⏩ Skipping {img_path.name} (already processed)")
         continue
 
-    print(f"\nProcessing: {img_path}")
+    print(f"\n📷 Processing: {img_path}")
     try:
         segments = segmenter.segment(str(img_path))
         image = ImageUtils.load_image(str(img_path))
 
         if not segments:
+            print("⚠️ No segments found, defaulting to whole image.")
             segments = [[0, 0, image.width, image.height]]
 
         segments_data = []
@@ -83,22 +93,29 @@ for img_path in tqdm(all_images, desc="Processing Images"):
                 if text:
                     segments_data.append({"type": "Text", "content": text, "box": (x1, y1, x2, y2)})
                     continue
-            except Exception as e:
-                print(f"⚠️ OCR error: {e}")
+            except Exception:
+                print(f"⚠️ OCR error for segment {idx + 1}")
+                traceback.print_exc()
 
             if mode == 'full':
                 try:
                     caption = captioner.caption(cropped)
                     segments_data.append({"type": "Caption", "content": caption, "box": (x1, y1, x2, y2)})
-                except Exception as e:
-                    print(f"⚠️ Captioning error: {e}")
+                except Exception:
+                    print(f"⚠️ Captioning error for segment {idx + 1}")
+                    traceback.print_exc()
                     segments_data.append({"type": "Unknown", "content": "[Failed to analyze segment]", "box": (x1, y1, x2, y2)})
             else:
                 segments_data.append({"type": "Unknown", "content": "[OCR Failed, no captioning in OCR-only mode]", "box": (x1, y1, x2, y2)})
 
-        ImageUtils.save_markdown(output_md, segments_data)
-        ImageUtils.save_debug_image(str(img_path), segments, output_debug)
-        print(f"✅ Saved: {output_md} and {output_debug}")
+        try:
+            ImageUtils.save_markdown(output_md, segments_data)
+            ImageUtils.save_debug_image(str(img_path), segments, output_debug)
+            print(f"✅ Saved: {output_md} and {output_debug}")
+        except Exception:
+            print("❌ Error saving markdown or debug image.")
+            traceback.print_exc()
 
-    except Exception as e:
-        print(f"❌ Failed to process {img_path}: {e}")
+    except Exception:
+        print(f"❌ Failed to process {img_path}")
+        traceback.print_exc()
