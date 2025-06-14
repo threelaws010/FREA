@@ -33,6 +33,7 @@ no_segmentation = '--no-segmentation' in sys.argv
 
 # === LOAD CONFIG WITH ERROR HANDLING ===
 try:
+    
     with open('config.json') as f:
         config = json.load(f)
 except Exception as e:

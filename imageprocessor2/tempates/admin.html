@@ -1,32 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin Panel</title>
+    <title>Image Processor Admin</title>
 </head>
 <body>
-    <h1>Admin Panel</h1>
-
-    <h2>Set Parameters</h2>
+    <h2>🛠️ Update Configuration</h2>
     <form method="POST">
-        <label>Confidence Threshold:</label><br>
-        <input type="text" name="conf_threshold" value="{{ config.conf_threshold }}"><br><br>
+        <label>Confidence Threshold:</label>
+        <input type="text" name="conf_threshold" value="{{ config.conf_threshold }}"><br>
 
-        <label>Max Segments:</label><br>
-        <input type="text" name="max_segments" value="{{ config.max_segments }}"><br><br>
+        <label>Max Segments:</label>
+        <input type="text" name="max_segments" value="{{ config.max_segments }}"><br>
 
-        <label>Min Size:</label><br>
+        <label>Min Segment Size:</label>
         <input type="text" name="min_size" value="{{ config.min_size }}"><br><br>
 
-        <button type="submit">Save</button>
+        <label><input type="checkbox" name="force"> Force Mode</label><br>
+        <label><input type="checkbox" name="ocr_only"> OCR-Only Mode</label><br>
+        <label><input type="checkbox" name="no_segmentation"> Skip Segmentation</label><br><br>
+
+        <button type="submit">💾 Save & Run Script</button>
     </form>
 
     <hr>
-
-    <h2>Activity Log</h2>
-    <pre>
-    {% for line in log_lines %}
-{{ line }}
-    {% endfor %}
-    </pre>
+    <h3>📜 Recent Activity Log</h3>
+    <pre style="background:#eee; padding:10px;">{% for line in log_lines %}{{ line }}{% endfor %}</pre>
 </body>
 </html>
