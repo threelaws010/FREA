@@ -27,6 +27,8 @@ if len(sys.argv) > 1:
         mode = 'ocr'
 
 force = '--force' in sys.argv
+print("🛠️ FORCE MODE:", force)
+print("Arguments received:", sys.argv)
 no_segmentation = '--no-segmentation' in sys.argv
 
 # === LOAD CONFIG WITH ERROR HANDLING ===
