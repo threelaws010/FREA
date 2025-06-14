@@ -1,0 +1,36 @@
+<!-- ~/FREA/imageprocessor2/templates/admin.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Panel</title>
+</head>
+<body>
+  <h1>Admin Config</h1>
+  <form method="POST">
+    <label>Confidence Threshold:
+      <input type="text" name="conf_threshold" value="{{ config.get('conf_threshold', 0.25) }}">
+    </label><br>
+
+    <label>Max Segments:
+      <input type="text" name="max_segments" value="{{ config.get('max_segments', 10) }}">
+    </label><br>
+
+    <label>Min Size:
+      <input type="text" name="min_size" value="{{ config.get('min_size', 20) }}">
+    </label><br>
+
+    <label><input type="checkbox" name="force"> Force</label><br>
+    <label><input type="checkbox" name="ocr_only"> OCR Only</label><br>
+    <label><input type="checkbox" name="no_segmentation"> No Segmentation</label><br>
+
+    <button type="submit">Run Script</button>
+  </form>
+
+  <h2>Log Output</h2>
+  <pre>
+{% for line in log_lines %}
+{{ line }}
+{% endfor %}
+  </pre>
+</body>
+</html>
