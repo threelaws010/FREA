@@ -1,35 +1,81 @@
-<!-- ~/FREA/imageprocessor2/templates/admin.html -->
 <!DOCTYPE html>
 <html>
 <head>
   <title>Admin Panel</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    form label {
+      display: block;
+      margin-bottom: 6px;
+    }
+    pre {
+      font-size: 12px;
+      line-height: 1.2em;
+      background: #f4f4f4;
+      padding: 10px;
+      overflow-x: auto;
+      border: 1px solid #ccc;
+      max-height: 400px;
+    }
+    .progress-bar {
+      display: none;
+      width: 100%;
+      height: 8px;
+      background-color: #eee;
+      margin-top: 20px;
+      position: relative;
+    }
+    .progress-bar::before {
+      content: '';
+      position: absolute;
+      width: 0%;
+      height: 100%;
+      background-color: #007BFF;
+      animation: progress 5s linear infinite;
+    }
+    @keyframes progress {
+      0% { width: 0%; }
+      50% { width: 80%; }
+      100% { width: 0%; }
+    }
+  </style>
+  <script>
+    function showProgressBar() {
+      document.getElementById('progress').style.display = 'block';
+    }
+  </script>
 </head>
 <body>
-  <h1>Admin Config</h1>
-  <form method="POST">
+  <h1>Admin Configuration</h1>
+  <form method="POST" onsubmit="showProgressBar()">
     <label>Confidence Threshold:
       <input type="text" name="conf_threshold" value="{{ config.get('conf_threshold', 0.25) }}">
-    </label><br>
+    </label>
 
     <label>Max Segments:
       <input type="text" name="max_segments" value="{{ config.get('max_segments', 10) }}">
-    </label><br>
+    </label>
 
     <label>Min Size:
       <input type="text" name="min_size" value="{{ config.get('min_size', 20) }}">
-    </label><br>
+    </label>
 
-    <label><input type="checkbox" name="force"> Force</label><br>
-    <label><input type="checkbox" name="ocr_only"> OCR Only</label><br>
-    <label><input type="checkbox" name="no_segmentation"> No Segmentation</label><br>
+    <label><input type="checkbox" name="force"> Force</label>
+    <label><input type="checkbox" name="ocr_only"> OCR Only</label>
+    <label><input type="checkbox" name="no_segmentation"> No Segmentation</label>
 
     <button type="submit">Run Script</button>
+
+    <div id="progress" class="progress-bar"></div>
   </form>
 
-  <h2>Log Output</h2>
+  <h2>Recent Logs</h2>
   <pre>
 {% for line in log_lines %}
-{{ line }}
+{{ line.rstrip() }}
 {% endfor %}
   </pre>
 </body>
