@@ -12,6 +12,9 @@ class TypedOCRReader:
         self.model = VisionEncoderDecoderModel.from_pretrained(model_name).to(self.device)
 
     def read_text(self, cropped_image):
+        # Ensure image is in RGB format (3 channels)
+        if cropped_image.mode != "RGB":
+            cropped_image = cropped_image.convert("RGB")
         pixel_values = self.processor(images=cropped_image, return_tensors="pt").pixel_values.to(self.device)
         generated_ids = self.model.generate(pixel_values, max_new_tokens=512)
         text = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0]

@@ -114,15 +114,17 @@ for img_path in tqdm(all_images, desc="Processing Images"):
 
             text = ""
             try:
-                text = ocr_reader.read_text(cropped)
+                text = typed_ocr_reader.read_text(cropped)
             except Exception:
-                print(f"⚠️ Handwritten OCR failed for segment {idx + 1}, trying printed OCR.")
+                print(f"⚠️ Printed OCR failed for segment {idx + 1}, trying handwritten OCR.")
                 traceback.print_exc()
                 try:
-                    text = typed_ocr_reader.read_text(cropped)
+                    text = ocr_reader.read_text(cropped)
                 except Exception:
-                    print(f"❌ Printed OCR also failed for segment {idx + 1}")
+                    print(f"❌ Handwritten OCR also failed for segment {idx + 1}")
                     traceback.print_exc()
+
+
 
             content = text
             source_type = "ocr"
