@@ -1,7 +1,8 @@
+
 import os
 from text_type_detector import is_handwritten, is_typed
 
-def run_tests(image_dir="../test_images"):
+def run_tests(image_dir="/home/frea/FREA/imageprocessor2/test_images"):
     supported_extensions = (".jpg", ".jpeg", ".png")
     
     if not os.path.isdir(image_dir):
@@ -31,4 +32,4 @@ def run_tests(image_dir="../test_images"):
             print(f"{filename}: ❌ Error - {e}")
 
 if __name__ == "__main__":
-    run_tests("test_images")
+    run_tests("/home/frea/FREA/imageprocessor2/test_images")
