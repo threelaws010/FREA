@@ -1,0 +1,10 @@
+langchain
+streamlit
+neo4j
+openai
+unstructured
+tiktoken
+sentence-transformers
+chromadb  # optional
+pyvis>=0.3.2
+
