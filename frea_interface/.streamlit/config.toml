@@ -1,0 +1,6 @@
+[server]
+port = 8501
+enableCORS = false
+headless = true
+unqualified-search-registries = ["docker.io"]
+

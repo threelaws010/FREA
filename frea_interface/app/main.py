@@ -1,6 +1,6 @@
 import streamlit as st
-from langchain.llms import Ollama
-from langchain.vectorstores.neo4j_vector import Neo4jVector
+from langchain_community.llms import Ollama
+from langchain_community.vectorstores import Neo4jVector
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.document_loaders import UnstructuredMarkdownLoader
@@ -8,20 +8,25 @@ from pyvis.network import Network
 import tempfile
 import os
 from neo4j import GraphDatabase
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+NEO4J_URL = os.getenv("NEO4J_URL", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+VECTOR_INDEX_NAME = os.getenv("VECTOR_INDEX_NAME", "frea")
 
 # Neo4j config
-NEO4J_URL = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "your_password"
-VECTOR_INDEX_NAME = "md_chunks"
 
 # Set up embedding + vector store
 embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-vectorstore = Neo4jVector.from_existing_index(
-    url=NEO4J_URL,
-    username=NEO4J_USER,
-    password=NEO4J_PASSWORD,
-    index_name=VECTOR_INDEX_NAME,
+vectorstore = Neo4jVector(
+    url="bolt://localhost:7687",
+    username="neo4j",
+    password="ka1smbPooh",
+    index_name="frea",
     embedding=embedding,
 )
 

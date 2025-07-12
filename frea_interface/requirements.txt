@@ -1,4 +1,5 @@
-langchain
+langchain>=0.2.0
+langchain-community
 streamlit
 neo4j
 openai
@@ -7,4 +8,3 @@ tiktoken
 sentence-transformers
 chromadb  # optional
 pyvis>=0.3.2
-
