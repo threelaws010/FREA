@@ -1,7 +1,7 @@
 version: "3"
 services:
   neo4j:
-    image: neo4j:5
+    image: docker.io/library/neo4j:5
     environment:
       - NEO4J_AUTH=neo4j/ka1smbPooh
     ports:
