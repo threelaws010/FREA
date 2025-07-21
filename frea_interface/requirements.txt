@@ -1,25 +1,10 @@
 langchain>=0.2.0
 langchain-community
-langchain-neo4j
 streamlit
 neo4j
 openai
 unstructured
 tiktoken
 sentence-transformers
-chromadb  # optional
 pyvis>=0.3.2
-langchain-neo4j
-langchain-ollama
-langchain-huggingface
-langchain-embeddings-huggingface
-langchain-text-splitters
-langchain-llms-ollama
-langchain-graph
-langchain-graph-neo4j
-langchain-graph-ollama
-langchain-graph-huggingface
-langchain-graph-community
-langchain-graph-community-neo4j
-langchain-graph-community-ollama
-langchain-graph-community-huggingface       
+# Remove: langchain-neo4j, langchain-ollama, etc. unless you're sure you need them

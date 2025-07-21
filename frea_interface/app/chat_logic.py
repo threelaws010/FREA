@@ -1,5 +1,5 @@
 from langchain_community.llms import Ollama
-from langchain_neo4j.vectorstores import Neo4jVector
+from langchain_community.vectorstores import Neo4jVector
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.document_loaders import UnstructuredMarkdownLoader
@@ -27,7 +27,7 @@ vectorstore = Neo4jVector(
     username=NEO4J_USER ,
     password=NEO4J_PASSWORD,
     index_name="frea",
-    embedding=VECTOR_INDEX_NAME ,
+    embedding=embedding,
 )
 
 # LangChain RetrievalQA chain
