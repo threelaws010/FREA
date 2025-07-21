@@ -1,6 +1,6 @@
 import streamlit as st
 from langchain_community.llms import Ollama
-from langchain_community.vectorstores import Neo4jVector
+from langchain_neo4j.vectorstores import Neo4jVector
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.document_loaders import UnstructuredMarkdownLoader
@@ -23,11 +23,11 @@ VECTOR_INDEX_NAME = os.getenv("VECTOR_INDEX_NAME", "frea")
 # Set up embedding + vector store
 embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vectorstore = Neo4jVector(
-    url="bolt://host.containers.internal:7687",
-    username="neo4j",
-    password="ka1smbPooh",
+    url=NEO4J_URL,
+    username=NEO4J_USER ,
+    password=NEO4J_PASSWORD,
     index_name="frea",
-    embedding=embedding,
+    embedding=VECTOR_INDEX_NAME ,
 )
 
 # Load local LLaMA 3 model via Ollama

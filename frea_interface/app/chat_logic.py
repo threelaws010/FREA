@@ -1,5 +1,5 @@
 from langchain_community.llms import Ollama
-from langchain_community.vectorstores import Neo4jVector
+from langchain_neo4j.vectorstores import Neo4jVector
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.document_loaders import UnstructuredMarkdownLoader
@@ -22,14 +22,12 @@ llm = Ollama(model="llama3")
 
 # HuggingFace embedding model
 embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-# Neo4j vector store
 vectorstore = Neo4jVector(
-    url="bolt://host.containers.internal:7687",
-    username="neo4j",
-    password="ka1smbPooh",
+    url=NEO4J_URL,
+    username=NEO4J_USER ,
+    password=NEO4J_PASSWORD,
     index_name="frea",
-    embedding=embedding,
+    embedding=VECTOR_INDEX_NAME ,
 )
 
 # LangChain RetrievalQA chain

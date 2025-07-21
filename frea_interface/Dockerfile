@@ -1,35 +1,30 @@
-# Use a light Python base
 FROM python:3.11-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    LANG=C.UTF-8
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV LANG=C.UTF-8
 
-# Install system dependencies
+# Install basic system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     git \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
     && apt-get clean
 
-# Create working directory
+# Set working directory
 WORKDIR /app
 
-# Copy files
+# Copy requirements first (for better caching)
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy app files
-COPY app/ ./app
-COPY .streamlit/ .streamlit
+# ✅ Install all Python packages including langchain-neo4j
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose Streamlit port
-EXPOSE 8501
+# Copy the rest of your application code
+COPY . .
 
-# Default command to run the app
-CMD ["streamlit", "run", "app/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Ensure Neo4j is ready before starting the app
+RUN chmod +x /app/check_neo4j_ready.sh
+
+CMD ["sh", "-c", "./check_neo4j_ready.sh && streamlit run app/main.py"]
