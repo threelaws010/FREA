@@ -21,7 +21,7 @@ load_dotenv()
 
 INPUT_DIR = os.getenv('INPUT_DIR', 'home/test/sample')
 OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'home/test/MD')
-NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
+NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://host.containers.internal:7687')
 NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
 NEO4J_PASS = os.getenv('NEO4J_PASS', 'password')
 

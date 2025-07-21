@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NEO4J_URL = os.getenv("NEO4J_URL", "bolt://localhost:7687")
+NEO4J_URL = os.getenv("NEO4J_URL", "bolt://host.containers.internal:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 VECTOR_INDEX_NAME = os.getenv("VECTOR_INDEX_NAME", "frea")
@@ -25,7 +25,7 @@ embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L
 
 # Neo4j vector store
 vectorstore = Neo4jVector(
-    url="bolt://localhost:7687",
+    url="bolt://host.containers.internal:7687",
     username="neo4j",
     password="ka1smbPooh",
     index_name="frea",
