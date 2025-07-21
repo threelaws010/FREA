@@ -1,20 +1,19 @@
-version: "3"
+version: "3.8"
 services:
-  neo4j:
-    image: docker.io/library/neo4j:5
-    environment:
-      - NEO4J_AUTH=neo4j/ka1smbPooh
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-
   frea-interface:
     build: .
     ports:
       - "8501:8501"
-    depends_on:
-      - neo4j
     environment:
-      - NEO4J_URL=bolt://neo4j:7687
-    env_file:
-    - .env
+      - NEO4J_URL=bolt://host.docker.internal:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=ka1smbPooh
+      - VECTOR_INDEX_NAME=frea
+    depends_on:
+      - wait-for-neo4j
+    volumes:
+      - .:/app
+
+  wait-for-neo4j:
+    image: busybox
+    command: /bin/sh -c "sleep 10"
