@@ -8,18 +8,26 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 from langchain_community.llms import Ollama
 from langchain.chains import RetrievalQA
+from py2neo import Graph, Node, Relationship
+from datetime import datetime
+from dotenv import load_dotenv
+
+# --- Load environment variables from .env file ---
+load_dotenv()
 
 # --- Configuration ---
-EMBEDDING_MODEL = "llama3"
-LLM_MODEL = "llama3"
-DOCUMENT_DIR = "docs"
-INDEX_PATH = "faiss_index"
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "llama3")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3")
+DOCUMENT_DIR = os.getenv("DOCUMENT_DIR", "docs")
+INDEX_PATH = os.getenv("INDEX_PATH", "faiss_index")
+NEO4J_URL = os.getenv("NEO4J_URL", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASS = os.getenv("NEO4J_PASS", "test")
 
 # --- Load and Embed Documents (with update check) ---
 def build_or_update_vectorstore():
     embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
-
-    os.makedirs(DOCUMENT_DIR, exist_ok=True)  # ✅ Ensure docs folder exists
+    os.makedirs(DOCUMENT_DIR, exist_ok=True)
 
     if os.path.exists(INDEX_PATH):
         vectorstore = FAISS.load_local(INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
@@ -56,17 +64,46 @@ def create_qa_chain():
     llm = Ollama(model=LLM_MODEL)
     return RetrievalQA.from_chain_type(llm=llm, retriever=retriever, chain_type="stuff")
 
+# --- Neo4j Graph Save ---
+def save_to_neo4j(chat_history):
+    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
+    tx = graph.begin()
+    conv_node = Node("Conversation", timestamp=str(datetime.now()))
+    tx.create(conv_node)
+    for i, (q, a) in enumerate(chat_history):
+        q_node = Node("Question", text=q)
+        a_node = Node("Answer", text=a)
+        tx.create(q_node)
+        tx.create(a_node)
+        tx.create(Relationship(conv_node, "HAS_QUESTION", q_node))
+        tx.create(Relationship(q_node, "HAS_ANSWER", a_node))
+    tx.commit()
+
 # --- Streamlit UI ---
 st.set_page_config(page_title="LLaMA 3 RAG Chat", layout="wide")
 st.title("🦙 LLaMA 3 + FAISS Chatbot")
 
 qa_chain = create_qa_chain()
 
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+with st.sidebar:
+    st.header("🗂️ Chat History")
+    for i, (q, a) in enumerate(st.session_state.chat_history):
+        with st.expander(f"Q{i+1}: {q}", expanded=False):
+            st.markdown(f"**Q:** {q}")
+            st.markdown(f"**A:** {a}")
+    if st.button("💾 Save to Neo4j"):
+        save_to_neo4j(st.session_state.chat_history)
+        st.success("Saved to Neo4j!")
+
 user_question = st.text_input("Ask a question about your documents:", placeholder="What is this about?")
 
 if user_question:
     with st.spinner("Thinking..."):
         result = qa_chain.run(user_question)
+    st.session_state.chat_history.append((user_question, result))
     st.markdown("---")
     st.markdown("### 💬 Answer")
     st.write(result)
