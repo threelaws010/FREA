@@ -102,11 +102,10 @@ def main():
         print("INPUT_DIR is not set or invalid.")
         return
 
-    image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(".jpg")]
-    if BATCH_LIMIT:
-        image_files = image_files[:BATCH_LIMIT]
+    all_image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(".jpg")]
+    images_to_process = []
 
-    for file_name in image_files:
+    for file_name in all_image_files:
         image_path = os.path.join(input_dir, file_name)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
         folder_parts = os.path.abspath(os.path.dirname(image_path)).split(os.sep)
@@ -114,11 +113,16 @@ def main():
         output_file_name = f"{MODEL}_{TOKENS}_{folder_name_part}_{base_name}.txt"
         output_path = os.path.join(os.path.dirname(image_path), output_file_name)
 
-        # Skip if output file exists and override is not set
         if os.path.exists(output_path) and not OVERRIDE_EXISTING:
             print(f"Skipping {file_name} — already processed.")
             continue
 
+        images_to_process.append((file_name, image_path, output_path))
+
+        if BATCH_LIMIT and len(images_to_process) >= BATCH_LIMIT:
+            break
+
+    for file_name, image_path, output_path in images_to_process:
         print(f"Processing: {file_name}")
         try:
             output_text = process_image(image_path)
@@ -128,7 +132,7 @@ def main():
         except Exception as e:
             print(f"Failed to process {file_name}: {e}")
 
-        
+
 
 
 if __name__ == "__main__":
