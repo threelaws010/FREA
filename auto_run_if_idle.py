@@ -10,8 +10,8 @@ import platform
 
 load_dotenv()
 
-CHECK_INTERVAL = 10 # seconds
-IDLE_THRESHOLD = 30 # 5 minutes
+CHECK_INTERVAL = 60 # seconds
+IDLE_THRESHOLD = 300# 5 minutes
 
 def is_idle():
     try:
