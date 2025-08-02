@@ -18,7 +18,8 @@ client = OpenAI(api_key=api_key)
 MODEL = "gpt-4o-mini"  # Use the mini version for lower costs and faster processing
 #MODEL ="gpt-4-turbo"
 TOKENS = 2048  # Adjust based on your model's token limit
-BATCH_LIMIT = 100
+BATCH_LIMIT = 3
+OVERRIDE_EXISTING = False
 
 # Prompt to guide the model
 VISION_PROMPT = (
@@ -107,20 +108,27 @@ def main():
 
     for file_name in image_files:
         image_path = os.path.join(input_dir, file_name)
+        base_name = os.path.splitext(os.path.basename(image_path))[0]
+        folder_parts = os.path.abspath(os.path.dirname(image_path)).split(os.sep)
+        folder_name_part = "_".join(folder_parts[-3:])  # Adjust depth as needed
+        output_file_name = f"{MODEL}_{TOKENS}_{folder_name_part}_{base_name}.txt"
+        output_path = os.path.join(os.path.dirname(image_path), output_file_name)
+
+        # Skip if output file exists and override is not set
+        if os.path.exists(output_path) and not OVERRIDE_EXISTING:
+            print(f"Skipping {file_name} — already processed.")
+            continue
+
         print(f"Processing: {file_name}")
         try:
             output_text = process_image(image_path)
-            rel_path = os.path.relpath(image_path, input_dir)
-            base_name = os.path.splitext(os.path.basename(image_path))[0]
-            folder_parts = os.path.abspath(os.path.dirname(image_path)).split(os.sep)
-            folder_name_part = "_".join(folder_parts[-3:])  # Adjust depth as needed
-            output_file_name = f"{MODEL}_{TOKENS}_{folder_name_part}_{base_name}.txt"
-            output_path = os.path.join(os.path.dirname(image_path), output_file_name)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(output_text)
             print(f"Saved: {output_path}")
         except Exception as e:
             print(f"Failed to process {file_name}: {e}")
+
+        
 
 
 if __name__ == "__main__":
