@@ -80,7 +80,12 @@ def process_all_txt_files(folder_path=INPUT_DIR):
 def load_vectorstore():
     if os.path.exists(VECTOR_STORE_PATH):
         print("✅ FAISS index found — loading.")
-        return FAISS.load_local(VECTOR_STORE_PATH, embeddings=embedding_model)
+        return FAISS.load_local(
+                VECTOR_STORE_PATH,
+                embeddings=embedding_model,
+                allow_dangerous_deserialization=True
+            )
+
     print("⚠️ FAISS index not found.")
     return None
 
