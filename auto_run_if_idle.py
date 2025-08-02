@@ -14,34 +14,18 @@ CHECK_INTERVAL = 60  # seconds
 IDLE_THRESHOLD = 300  # 5 minutes
 
 def is_idle():
-    if platform.system() == "Linux":
-        class XScreenSaverInfo(ctypes.Structure):
-            _fields_ = [("window", ctypes.c_ulong),
-                        ("state", ctypes.c_int),
-                        ("kind", ctypes.c_int),
-                        ("since", ctypes.c_ulong),
-                        ("idle", ctypes.c_ulong),
-                        ("event_mask", ctypes.c_ulong)]
-
-        xlib = ctypes.cdll.LoadLibrary("libX11.so")
-        dpy = xlib.XOpenDisplay(None)
-        if not dpy:
-            return False
-
-        xss = ctypes.cdll.LoadLibrary("libXss.so")
-        xss.XScreenSaverAllocInfo.restype = ctypes.POINTER(XScreenSaverInfo)
-        info = xss.XScreenSaverAllocInfo()
-        xss.XScreenSaverQueryInfo(dpy, xlib.XDefaultRootWindow(dpy), info)
-        idle_time = info.contents.idle / 1000
-        xlib.XCloseDisplay(dpy)
-        return idle_time > IDLE_THRESHOLD
-    else:
-        print("Idle check only supported on Linux in this script.")
+    try:
+        idle_ms = int(subprocess.check_output(['xprintidle']).decode().strip())
+        idle_sec = idle_ms / 1000
+        return idle_sec > IDLE_THRESHOLD
+    except Exception as e:
+        print(f"Idle check failed: {e}")
         return False
 
+
 def run_make_md():
-    print("🖼️ Running make_md_input_GPU.py...")
-    return subprocess.call(["python3", "make_md_input_GPU.py"])
+    print("🖼️ Running gpt_process_images.py..")
+    return subprocess.call(["python3", "gpt_process_images.py"])
 
 def run_vector_store():
     print("🧠 Running vector_store.py...")
@@ -52,8 +36,8 @@ def main_loop():
         if is_idle():
             print("🛌 System idle — beginning processing...")
             run_make_md()
-            run_vector_store()
-            print("✅ Processing complete. Sleeping before re-check...")
+            #run_vector_store()
+            #print("✅ Processing complete. Sleeping before re-check...")
             time.sleep(CHECK_INTERVAL * 2)
         else:
             print("💻 System active — waiting...")

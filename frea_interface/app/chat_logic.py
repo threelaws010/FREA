@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NEO4J_URL = os.getenv("NEO4J_URL", "bolt://host.containers.internal:7687")
+
+NEO4J_URL = os.getenv("NEO4J_URL", "bolt://host.docker.internal:7687")  # Corrected default
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 VECTOR_INDEX_NAME = os.getenv("VECTOR_INDEX_NAME", "frea")
@@ -24,9 +25,9 @@ llm = Ollama(model="llama3")
 embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vectorstore = Neo4jVector(
     url=NEO4J_URL,
-    username=NEO4J_USER ,
+    username=NEO4J_USER,
     password=NEO4J_PASSWORD,
-    index_name="frea",
+    index_name=VECTOR_INDEX_NAME,
     embedding=embedding,
 )
 
