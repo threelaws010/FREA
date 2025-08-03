@@ -128,7 +128,6 @@ def save_to_neo4j(chat_history):
 # --- Streamlit UI ---
 st.set_page_config(page_title="LLaMA 3 RAG Chat", layout="wide")
 st.title("🦙 LLaMA 3 + FAISS Chatbot")
-
 qa_chain = create_qa_chain()
 
 if "chat_history" not in st.session_state:
@@ -146,25 +145,12 @@ import tempfile
 
 if st.button("💾 Save to Neo4j"):
     graph_data = save_to_neo4j(st.session_state.chat_history)
-    if graph_data:
-        net = Network(height="500px", width="100%", bgcolor="#222222", font_color="white")
-
-    for node in graph_data["nodes"]:
-        net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
-
-    for edge in graph_data["edges"]:
-        net.add_edge(edge["source"], edge["target"], label=edge["label"])
-
-
-    tmp_path = "/tmp/graph.html"
-    net.save_graph(tmp_path)
-
-    components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
+   
 
     st.success("Saved to Neo4j!")
 
     # --- Create Pyvis graph ---
-    net = Network(height="500px", width="100%", bgcolor="#222222", font_color="white")
+    net = Network(height="500px", width="50%", bgcolor="#222222", font_color="white")
 
     for node in graph_data["nodes"]:
         net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
