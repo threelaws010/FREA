@@ -77,27 +77,35 @@ def create_qa_chain():
     return RetrievalQA.from_chain_type(llm=llm, retriever=retriever, chain_type="stuff")
 
 # --- Neo4j Graph Save ---
+def extract_triples(llm, question, answer):
+    prompt = f"""
+You are an AI that extracts structured knowledge. For the following Q&A, extract all semantic triples in the form of:
+[{{"subject": "...", "predicate": "...", "object": "..."}}]
+
+Q: {question}
+A: {answer}
+
+Output only a JSON array of triples.
+"""
+    response = llm.invoke(prompt)
+    try:
+        triples = eval(response) if isinstance(response, str) else response
+        if isinstance(triples, list) and all(isinstance(t, dict) for t in triples):
+            return triples
+    except Exception as e:
+        print(f"[ERROR] Failed to parse triples: {e}")
+    return []
+
+
+
 def save_to_neo4j(chat_history):
+    from langchain_ollama import OllamaLLM
+    llm = OllamaLLM(model=LLM_MODEL)
+
+    print(f"[DEBUG] Connecting to Neo4j at {NEO4J_URL} with user {NEO4J_USER}")
     graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
     tx = graph.begin()
-    
-    for i, item in enumerate(chat_history):
-        if isinstance(item, dict) and 'query' in item and 'result' in item:
-            query = item['query']
-            result = item['result']
-            node = Node("Chat", query=query, result=result)
-        else:
-            node = Node("Chat", content=str(item))  # fallback
 
-        tx.create(node)
-
-    graph.commit(tx)
-
-
-def save_to_neo4j(chat_history):
-    print(f"[DEBUG] Connecting to Neo4j at {NEO4J_URL} with user {NEO4J_USER} and password {NEO4J_PASS}")
-    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
-    tx = graph.begin()
     conv_node = Node("Conversation", timestamp=str(datetime.now()))
     tx.create(conv_node)
 
@@ -108,6 +116,7 @@ def save_to_neo4j(chat_history):
         q_text = q["query"] if isinstance(q, dict) and "query" in q else str(q)
         a_text = a["result"] if isinstance(a, dict) and "result" in a else str(a)
 
+        # Save raw Q/A
         q_node = Node("Question", text=q_text)
         a_node = Node("Answer", text=a_text)
         tx.create(q_node)
@@ -120,9 +129,23 @@ def save_to_neo4j(chat_history):
         graph_data["edges"].append({"source": str(conv_node.identity), "target": str(q_node.identity), "label": "HAS_QUESTION"})
         graph_data["edges"].append({"source": str(q_node.identity), "target": str(a_node.identity), "label": "HAS_ANSWER"})
 
+        # Extract semantic triples
+        triples = extract_triples(llm, q_text, a_text)
+        for triple in triples:
+            subj = Node("Entity", name=triple["subject"])
+            obj = Node("Entity", name=triple["object"])
+            rel = Relationship(subj, triple["predicate"].upper().replace(" ", "_"), obj)
+            tx.merge(subj, "Entity", "name")
+            tx.merge(obj, "Entity", "name")
+            tx.merge(rel)
+
+            graph_data["nodes"].append({"id": triple["subject"], "label": "Entity", "text": triple["subject"]})
+            graph_data["nodes"].append({"id": triple["object"], "label": "Entity", "text": triple["object"]})
+            graph_data["edges"].append({"source": triple["subject"], "target": triple["object"], "label": triple["predicate"]})
 
     tx.commit()
     return graph_data
+
 
 
 # --- Streamlit UI ---
@@ -150,7 +173,7 @@ if st.button("💾 Save to Neo4j"):
     st.success("Saved to Neo4j!")
 
     # --- Create Pyvis graph ---
-    net = Network(height="500px", width="50%", bgcolor="#222222", font_color="white")
+    net = Network(height="500px", width="50%", bgcolor="#EEE4E4", font_color="black")
 
     for node in graph_data["nodes"]:
         net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
