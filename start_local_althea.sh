@@ -24,5 +24,13 @@ else
     echo "✅ FAISS index already exists."
 fi
 
+# Start auto_run_if_idle.py in its own tmux session
+if ! tmux has-session -t idlecheck 2>/dev/null; then
+  echo "Starting auto_run_if_idle.py in tmux session 'idlecheck'..."
+  tmux new-session -d -s idlecheck "python3 /home/frea/FREA/auto_run_if_idle.py"
+else
+  echo "auto_run_if_idle.py already running in tmux session 'idlecheck'."
+fi
+
 echo "🌐 Launching Streamlit app..."
 streamlit run "$APP_PATH"
