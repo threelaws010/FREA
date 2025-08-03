@@ -78,18 +78,21 @@ def create_qa_chain():
 
 # --- Neo4j Graph Save ---
 def save_to_neo4j(chat_history):
-    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS), secure=False)
+    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
     tx = graph.begin()
-    conv_node = Node("Conversation", timestamp=str(datetime.now()))
-    tx.create(conv_node)
-    for i, (q, a) in enumerate(chat_history):
-        q_node = Node("Question", text=q)
-        a_node = Node("Answer", text=a)
-        tx.create(q_node)
-        tx.create(a_node)
-        tx.create(Relationship(conv_node, "HAS_QUESTION", q_node))
-        tx.create(Relationship(q_node, "HAS_ANSWER", a_node))
-    tx.commit()
+    
+    for i, item in enumerate(chat_history):
+        if isinstance(item, dict) and 'query' in item and 'result' in item:
+            query = item['query']
+            result = item['result']
+            node = Node("Chat", query=query, result=result)
+        else:
+            node = Node("Chat", content=str(item))  # fallback
+
+        tx.create(node)
+
+    graph.commit(tx)
+
 
 def save_to_neo4j(chat_history):
     print(f"[DEBUG] Connecting to Neo4j at {NEO4J_URL} with user {NEO4J_USER} and password {NEO4J_PASS}")
@@ -102,17 +105,21 @@ def save_to_neo4j(chat_history):
     graph_data["nodes"].append({"id": str(conv_node.identity), "label": "Conversation"})
 
     for i, (q, a) in enumerate(chat_history):
-        q_node = Node("Question", text=q)
-        a_node = Node("Answer", text=a)
+        q_text = q["query"] if isinstance(q, dict) and "query" in q else str(q)
+        a_text = a["result"] if isinstance(a, dict) and "result" in a else str(a)
+
+        q_node = Node("Question", text=q_text)
+        a_node = Node("Answer", text=a_text)
         tx.create(q_node)
         tx.create(a_node)
         tx.create(Relationship(conv_node, "HAS_QUESTION", q_node))
         tx.create(Relationship(q_node, "HAS_ANSWER", a_node))
 
-        graph_data["nodes"].append({"id": str(q_node.identity), "label": "Question", "text": q})
-        graph_data["nodes"].append({"id": str(a_node.identity), "label": "Answer", "text": a})
+        graph_data["nodes"].append({"id": str(q_node.identity), "label": "Question", "text": q_text})
+        graph_data["nodes"].append({"id": str(a_node.identity), "label": "Answer", "text": a_text})
         graph_data["edges"].append({"source": str(conv_node.identity), "target": str(q_node.identity), "label": "HAS_QUESTION"})
         graph_data["edges"].append({"source": str(q_node.identity), "target": str(a_node.identity), "label": "HAS_ANSWER"})
+
 
     tx.commit()
     return graph_data
@@ -146,7 +153,8 @@ if st.button("💾 Save to Neo4j"):
         net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
 
     for edge in graph_data["edges"]:
-        net.add_edge(edge["from"], edge["to"], label=edge["label"])
+        net.add_edge(edge["source"], edge["target"], label=edge["label"])
+
 
     tmp_path = "/tmp/graph.html"
     net.save_graph(tmp_path)
