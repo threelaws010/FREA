@@ -104,46 +104,59 @@ def save_to_neo4j(chat_history):
 
     print(f"[DEBUG] Connecting to Neo4j at {NEO4J_URL} with user {NEO4J_USER}")
     graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
-    tx = graph.begin()
+    try:
+        tx = graph.begin()
+        conv_node = Node("Conversation", timestamp=str(datetime.now()))
+        tx.create(conv_node)
 
-    conv_node = Node("Conversation", timestamp=str(datetime.now()))
-    tx.create(conv_node)
+        graph_data = {"nodes": [], "edges": []}
+        graph_data["nodes"].append({"id": str(conv_node.identity), "label": "Conversation"})
 
-    graph_data = {"nodes": [], "edges": []}
-    graph_data["nodes"].append({"id": str(conv_node.identity), "label": "Conversation"})
+        seen_entities = set()
 
-    for i, (q, a) in enumerate(chat_history):
-        q_text = q["query"] if isinstance(q, dict) and "query" in q else str(q)
-        a_text = a["result"] if isinstance(a, dict) and "result" in a else str(a)
+        for i, (q, a) in enumerate(chat_history):
+            q_text = q["query"] if isinstance(q, dict) and "query" in q else str(q)
+            a_text = a["result"] if isinstance(a, dict) and "result" in a else str(a)
 
-        # Save raw Q/A
-        q_node = Node("Question", text=q_text)
-        a_node = Node("Answer", text=a_text)
-        tx.create(q_node)
-        tx.create(a_node)
-        tx.create(Relationship(conv_node, "HAS_QUESTION", q_node))
-        tx.create(Relationship(q_node, "HAS_ANSWER", a_node))
+            q_node = Node("Question", text=q_text)
+            a_node = Node("Answer", text=a_text)
+            tx.create(q_node)
+            tx.create(a_node)
+            tx.create(Relationship(conv_node, "HAS_QUESTION", q_node))
+            tx.create(Relationship(q_node, "HAS_ANSWER", a_node))
 
-        graph_data["nodes"].append({"id": str(q_node.identity), "label": "Question", "text": q_text})
-        graph_data["nodes"].append({"id": str(a_node.identity), "label": "Answer", "text": a_text})
-        graph_data["edges"].append({"source": str(conv_node.identity), "target": str(q_node.identity), "label": "HAS_QUESTION"})
-        graph_data["edges"].append({"source": str(q_node.identity), "target": str(a_node.identity), "label": "HAS_ANSWER"})
+            graph_data["nodes"].append({"id": str(q_node.identity), "label": "Question", "text": q_text})
+            graph_data["nodes"].append({"id": str(a_node.identity), "label": "Answer", "text": a_text})
+            graph_data["edges"].append({"source": str(conv_node.identity), "target": str(q_node.identity), "label": "HAS_QUESTION"})
+            graph_data["edges"].append({"source": str(q_node.identity), "target": str(a_node.identity), "label": "HAS_ANSWER"})
 
-        # Extract semantic triples
-        triples = extract_triples(llm, q_text, a_text)
-        for triple in triples:
-            subj = Node("Entity", name=triple["subject"])
-            obj = Node("Entity", name=triple["object"])
-            rel = Relationship(subj, triple["predicate"].upper().replace(" ", "_"), obj)
-            tx.merge(subj, "Entity", "name")
-            tx.merge(obj, "Entity", "name")
-            tx.merge(rel)
+            triples = extract_triples(llm, q_text, a_text)
+            for triple in triples:
+                subj = Node("Entity", name=triple["subject"])
+                obj = Node("Entity", name=triple["object"])
+                rel = Relationship(subj, triple["predicate"].upper().replace(" ", "_"), obj)
+                tx.merge(subj, "Entity", "name")
+                tx.merge(obj, "Entity", "name")
+                tx.merge(rel)
 
-            graph_data["nodes"].append({"id": triple["subject"], "label": "Entity", "text": triple["subject"]})
-            graph_data["nodes"].append({"id": triple["object"], "label": "Entity", "text": triple["object"]})
-            graph_data["edges"].append({"source": triple["subject"], "target": triple["object"], "label": triple["predicate"]})
+                if triple["subject"] not in seen_entities:
+                    graph_data["nodes"].append({"id": triple["subject"], "label": "Entity", "text": triple["subject"]})
+                    seen_entities.add(triple["subject"])
 
-    tx.commit()
+                if triple["object"] not in seen_entities:
+                    graph_data["nodes"].append({"id": triple["object"], "label": "Entity", "text": triple["object"]})
+                    seen_entities.add(triple["object"])
+
+                graph_data["edges"].append({"source": triple["subject"], "target": triple["object"], "label": triple["predicate"]})
+
+        tx.commit()
+    except Exception as e:
+        import traceback
+        tx.rollback()
+        print("[ERROR] Neo4j transaction failed:")
+        traceback.print_exc()
+        raise RuntimeError(f"[ERROR] Failed to save chat to Neo4j: {e}")
+
     return graph_data
 
 
@@ -166,28 +179,30 @@ with st.sidebar:
 import streamlit.components.v1 as components
 import tempfile
 
-if st.button("💾 Save to Neo4j"):
-    graph_data = save_to_neo4j(st.session_state.chat_history)
-   
+if st.button("💾 show graph on conversation"):
+    if not st.session_state.chat_history:
+        st.warning("No chat history to save.")
+    else:
+        try:
+            graph_data = save_to_neo4j(st.session_state.chat_history)
+            st.success("Saved to Neo4j!")
 
-    st.success("Saved to Neo4j!")
+            # --- Create Pyvis graph ---
+            net = Network(height="500px", width="50%", bgcolor="#979090", font_color="black")
+            for node in graph_data["nodes"]:
+                net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
+            for edge in graph_data["edges"]:
+                net.add_edge(edge["source"], edge["target"], label=edge["label"])
 
-    # --- Create Pyvis graph ---
-    net = Network(height="500px", width="50%", bgcolor="#EEE4E4", font_color="black")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
+                net.save_graph(tmp_file.name)
+                tmp_path = tmp_file.name
 
-    for node in graph_data["nodes"]:
-        net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
+            st.markdown("### 📈 Knowledge Graph")
+            components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
+        except Exception as e:
+            st.error(f"❌ Failed to save and render graph: {e}")
 
-    for edge in graph_data["edges"]:
-        net.add_edge(edge["source"], edge["target"], label=edge["label"])
-
-    # --- Save to temporary HTML and display in Streamlit ---
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
-        net.save_graph(tmp_file.name)
-        tmp_path = tmp_file.name
-
-    st.markdown("### 📈 Knowledge Graph")
-    components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
 
 
 user_question = st.text_input("Ask a question about your documents:", placeholder="What is this about?")
