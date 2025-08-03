@@ -2,15 +2,25 @@
 
 import os
 import streamlit as st
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings, OllamaLLM
+
+
+from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import OllamaLLM  
+
+
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
-from langchain_community.llms import Ollama
+
 from langchain.chains import RetrievalQA
 from py2neo import Graph, Node, Relationship
 from datetime import datetime
 from dotenv import load_dotenv
+
+from pyvis.network import Network
+import streamlit.components.v1 as components
+import tempfile
 
 # --- Load environment variables from .env file ---
 load_dotenv()
@@ -22,7 +32,7 @@ DOCUMENT_DIR = os.getenv("DOCUMENT_DIR", "docs")
 INDEX_PATH = os.getenv("INDEX_PATH", "faiss_index")
 NEO4J_URL = os.getenv("NEO4J_URL", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASS = os.getenv("NEO4J_PASS", "test")
+NEO4J_PASS = os.getenv("NEO4J_PASS","Ka1smbPooh")
 
 # --- Load and Embed Documents (with update check) ---
 def build_or_update_vectorstore():
@@ -61,12 +71,14 @@ def build_or_update_vectorstore():
 def create_qa_chain():
     vectorstore = build_or_update_vectorstore()
     retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 4})
-    llm = Ollama(model=LLM_MODEL)
+    llm = OllamaLLM(model=LLM_MODEL)
+    if not llm:
+        raise ValueError("LLM model not found. Please check your configuration.")
     return RetrievalQA.from_chain_type(llm=llm, retriever=retriever, chain_type="stuff")
 
 # --- Neo4j Graph Save ---
 def save_to_neo4j(chat_history):
-    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
+    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS), secure=False)
     tx = graph.begin()
     conv_node = Node("Conversation", timestamp=str(datetime.now()))
     tx.create(conv_node)
@@ -78,6 +90,33 @@ def save_to_neo4j(chat_history):
         tx.create(Relationship(conv_node, "HAS_QUESTION", q_node))
         tx.create(Relationship(q_node, "HAS_ANSWER", a_node))
     tx.commit()
+
+def save_to_neo4j(chat_history):
+    print(f"[DEBUG] Connecting to Neo4j at {NEO4J_URL} with user {NEO4J_USER} and password {NEO4J_PASS}")
+    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASS))
+    tx = graph.begin()
+    conv_node = Node("Conversation", timestamp=str(datetime.now()))
+    tx.create(conv_node)
+
+    graph_data = {"nodes": [], "edges": []}
+    graph_data["nodes"].append({"id": str(conv_node.identity), "label": "Conversation"})
+
+    for i, (q, a) in enumerate(chat_history):
+        q_node = Node("Question", text=q)
+        a_node = Node("Answer", text=a)
+        tx.create(q_node)
+        tx.create(a_node)
+        tx.create(Relationship(conv_node, "HAS_QUESTION", q_node))
+        tx.create(Relationship(q_node, "HAS_ANSWER", a_node))
+
+        graph_data["nodes"].append({"id": str(q_node.identity), "label": "Question", "text": q})
+        graph_data["nodes"].append({"id": str(a_node.identity), "label": "Answer", "text": a})
+        graph_data["edges"].append({"source": str(conv_node.identity), "target": str(q_node.identity), "label": "HAS_QUESTION"})
+        graph_data["edges"].append({"source": str(q_node.identity), "target": str(a_node.identity), "label": "HAS_ANSWER"})
+
+    tx.commit()
+    return graph_data
+
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="LLaMA 3 RAG Chat", layout="wide")
@@ -94,15 +133,51 @@ with st.sidebar:
         with st.expander(f"Q{i+1}: {q}", expanded=False):
             st.markdown(f"**Q:** {q}")
             st.markdown(f"**A:** {a}")
-    if st.button("💾 Save to Neo4j"):
-        save_to_neo4j(st.session_state.chat_history)
-        st.success("Saved to Neo4j!")
+    from pyvis.network import Network
+import streamlit.components.v1 as components
+import tempfile
+
+if st.button("💾 Save to Neo4j"):
+    graph_data = save_to_neo4j(st.session_state.chat_history)
+    if graph_data:
+        net = Network(height="500px", width="100%", bgcolor="#222222", font_color="white")
+
+    for node in graph_data["nodes"]:
+        net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
+
+    for edge in graph_data["edges"]:
+        net.add_edge(edge["from"], edge["to"], label=edge["label"])
+
+    tmp_path = "/tmp/graph.html"
+    net.save_graph(tmp_path)
+
+    components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
+
+    st.success("Saved to Neo4j!")
+
+    # --- Create Pyvis graph ---
+    net = Network(height="500px", width="100%", bgcolor="#222222", font_color="white")
+
+    for node in graph_data["nodes"]:
+        net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
+
+    for edge in graph_data["edges"]:
+        net.add_edge(edge["source"], edge["target"], label=edge["label"])
+
+    # --- Save to temporary HTML and display in Streamlit ---
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
+        net.save_graph(tmp_file.name)
+        tmp_path = tmp_file.name
+
+    st.markdown("### 📈 Knowledge Graph")
+    components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
+
 
 user_question = st.text_input("Ask a question about your documents:", placeholder="What is this about?")
 
 if user_question:
     with st.spinner("Thinking..."):
-        result = qa_chain.run(user_question)
+        result = qa_chain.invoke(user_question)
     st.session_state.chat_history.append((user_question, result))
     st.markdown("---")
     st.markdown("### 💬 Answer")
