@@ -16,6 +16,8 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import tempfile
 import torch
+from cyber_triples import refine_cyber_query, extract_cyber_triples
+
 print("CUDA available:", torch.cuda.is_available())
 
 load_dotenv()
@@ -244,17 +246,7 @@ if user_question:
     input_query = user_question
     if refine_cyber:
         with st.spinner("Refining query for cybersecurity context..."):
-            refinement_prompt = f"""
-You are a cybersecurity expert and query generator.
-
-Rewrite the following vague question into a focused and specific query suitable for searching cybersecurity logs, threat databases, or security event summaries.
-
-Original question: "{user_question}"
-
-Output the improved query only.
-"""
-            llm = ChatOpenAI(model_name=LLM_MODEL, base_url=LMSTUDIO_BASE_URL, api_key="not-needed")
-            input_query = llm.invoke(refinement_prompt).strip()
+            input_query = refine_cyber_query(user_question)
             st.markdown(f"🔍 **Refined Query:** {input_query}")
 
     with st.spinner("Thinking..."):
@@ -320,7 +312,7 @@ if st.button("📌 Extract Knowledge Graph from Last Answer"):
         else:
             a_text = str(last_a)
 
-        triples = extract_triples(llm, q_text, a_text)
+        triples = extract_cyber_triples(q_text, a_text)
         if not triples:
             st.warning("❌ No triples could be extracted. Check the answer content.")
             st.markdown(f"**Q:** {q_text}\n\n**A:** {a_text}")
