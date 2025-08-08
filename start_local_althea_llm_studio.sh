@@ -5,12 +5,35 @@ APP_PATH="/home/frea/FREA/faiss_LLM_Studio_chat_app.py"
 FAISS_INDEX_DIR="faiss_index"
 NEO4J_SERVICE="neo4j"
 
-echo "🔍 Checking Neo4j status..."
-if ! systemctl is-active --quiet $NEO4J_SERVICE; then
-    echo "🚀 Starting Neo4j service..."
-    sudo systemctl start $NEO4J_SERVICE
+# Function to check if LLM Studio is running
+is_llm_studio_running() {
+  pgrep -f "lmstudio" > /dev/null
+  return $?
+}
+
+# Start LLM Studio if not running
+if is_llm_studio_running; then
+  echo "✅ LLM Studio is already running."
 else
-    echo "✅ Neo4j is already running."
+  echo "🚀 Starting LLM Studio..."
+  nohup lmstudio > /dev/null 2>&1 &
+  sleep 5
+  if is_llm_studio_running; then
+    echo "✅ LLM Studio started successfully."
+  else
+    echo "❌ Failed to start LLM Studio."
+  fi
+fi
+
+echo "🔌 Ensuring Neo4j is running..."
+sudo systemctl start neo4j
+
+sleep 5
+
+if systemctl is-active --quiet neo4j; then
+  echo "✅ Neo4j is running."
+else
+  echo "❌ Failed to start Neo4j."
 fi
 
 echo "📦 Checking FAISS index..."

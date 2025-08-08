@@ -135,6 +135,7 @@ JSON:
 
 
 def save_to_neo4j(chat_history):
+    graph_data = {"nodes": [], "edges": []} 
     llm = ChatOpenAI(model_name=LLM_MODEL, base_url=LMSTUDIO_BASE_URL, api_key="not-needed")
     graph = connect_neo4j_with_retry()
     from collections import defaultdict
@@ -142,8 +143,6 @@ def save_to_neo4j(chat_history):
         tx = graph.begin()
         conv_node = Node("Conversation", timestamp=str(datetime.now()))
         tx.create(conv_node)
-
-        graph_data = {"nodes": [], "edges": []}
         graph_data["nodes"].append({"id": str(conv_node.identity), "label": "Conversation"})
         seen_entities = set()
         entity_to_answers = defaultdict(set)
@@ -196,10 +195,11 @@ def save_to_neo4j(chat_history):
 
         graph.commit(tx)
     except Exception as e:
-        if 'tx' in locals():
-            tx.rollback()
-        print("[ERROR] Neo4j transaction failed:", e)
-    raise RuntimeError(f"[ERROR] Failed to save chat to Neo4j: {e}")
+            if 'tx' in locals():
+                tx.rollback()
+                print("[ERROR] Neo4j transaction failed:", e)
+                raise RuntimeError(f"[ERROR] Failed to save chat to Neo4j: {e}")
+
     return graph_data
 
 
