@@ -238,7 +238,49 @@ if st.button("💾 show graph on conversation"):
             st.error(f"❌ Failed to save and render graph: {e}")
 
 user_question = st.text_input("Ask a question about your documents:", placeholder="What is this about?")
+refine_cyber = st.checkbox("Refine question for cybersecurity context")
+
 if user_question:
+    input_query = user_question
+    if refine_cyber:
+        with st.spinner("Refining query for cybersecurity context..."):
+            refinement_prompt = f"""
+You are a cybersecurity expert and query generator.
+
+Rewrite the following vague question into a focused and specific query suitable for searching cybersecurity logs, threat databases, or security event summaries.
+
+Original question: "{user_question}"
+
+Output the improved query only.
+"""
+            llm = ChatOpenAI(model_name=LLM_MODEL, base_url=LMSTUDIO_BASE_URL, api_key="not-needed")
+            input_query = llm.invoke(refinement_prompt).strip()
+            st.markdown(f"🔍 **Refined Query:** {input_query}")
+
+    with st.spinner("Thinking..."):
+        result = qa_chain.invoke(input_query)
+
+    st.session_state.chat_history.append((user_question, result))
+
+    st.markdown("---")
+    st.markdown("### 💬 Answer")
+    st.write(result)
+
+    try:
+        graph_data = save_to_neo4j(st.session_state.chat_history)
+        net = Network(height="500px", width="50%", bgcolor="#979090", font_color="black")
+        for node in graph_data["nodes"]:
+            net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
+        for edge in graph_data["edges"]:
+            net.add_edge(edge["source"], edge["target"], label=edge["label"])
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
+            net.save_graph(tmp_file.name)
+            tmp_path = tmp_file.name
+        st.markdown("### 📈 Knowledge Graph")
+        components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
+    except Exception as e:
+        st.error(f"❌ Failed to save and render graph: {e}")
+
     with st.spinner("Thinking..."):
         result = qa_chain.invoke(user_question)
     st.session_state.chat_history.append((user_question, result))
@@ -259,3 +301,46 @@ if user_question:
         components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
     except Exception as e:
         st.error(f"❌ Failed to save and render graph: {e}")
+
+if st.button("📌 Extract Knowledge Graph from Last Answer"):
+    if not st.session_state.chat_history:
+        st.warning("No answer available yet.")
+    else:
+        llm = ChatOpenAI(model_name=LLM_MODEL, base_url=LMSTUDIO_BASE_URL, api_key="not-needed")
+
+        # Extract last question and result
+        last_q, last_a = st.session_state.chat_history[-1]
+        q_text = last_q["query"] if isinstance(last_q, dict) and "query" in last_q else str(last_q)
+
+        # Handle both LangChain object and dict result
+        if isinstance(last_a, dict) and "result" in last_a:
+            a_text = last_a["result"]
+        elif hasattr(last_a, "get") and last_a.get("result"):
+            a_text = last_a.get("result")
+        else:
+            a_text = str(last_a)
+
+        triples = extract_triples(llm, q_text, a_text)
+        if not triples:
+            st.warning("❌ No triples could be extracted. Check the answer content.")
+            st.markdown(f"**Q:** {q_text}\n\n**A:** {a_text}")
+        else:
+            st.success(f"✅ Extracted {len(triples)} triples.")
+            net = Network(height="500px", width="50%", bgcolor="#f0f0f0", font_color="black")
+            added_nodes = set()
+
+            for triple in triples:
+                subj, pred, obj = triple["subject"], triple["predicate"], triple["object"]
+                for node in (subj, obj):
+                    if node not in added_nodes:
+                        net.add_node(node, label=node)
+                        added_nodes.add(node)
+                net.add_edge(subj, obj, label=pred)
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
+                net.save_graph(tmp_file.name)
+                tmp_path = tmp_file.name
+            st.markdown("### 📍 Extracted Knowledge Graph for Last Answer")
+            components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
+
+
