@@ -25,7 +25,9 @@ def is_idle():
 
 def run_make_md():
     print("🖼️ Running gpt_process_images.py..")
-    return subprocess.call(["python3", "gpt_process_images.py"])
+    #return subprocess.call(["python3", "gpt_process_images.py"])
+    return subprocess.call(["python3", "gpt_process_images_lmstudio.py"])
+
 
 def run_vector_store():
     print("🧠 Running vector_store.py...")
