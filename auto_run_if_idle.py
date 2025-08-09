@@ -29,7 +29,8 @@ def run_make_md():
 
 def run_vector_store():
     print("🧠 Running vector_store.py...")
-    return subprocess.call(["python3", "/home/frea/FREA/store_vectors/vector_store.py"])
+    #return subprocess.call(["python3", "/home/frea/FREA/store_vectors/vector_store.py"])
+    return subprocess.call(["python3", "/home/frea/FREA/store_vectors/multi_vector_store.py"])
 
 def main_loop():
     while True:
