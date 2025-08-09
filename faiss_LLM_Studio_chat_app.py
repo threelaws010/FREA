@@ -39,6 +39,15 @@ from py2neo import Graph
 import subprocess
 import time
 
+def _as_text(x):
+    if isinstance(x, dict):
+        for k in ("result", "answer", "output_text", "content", "text"):
+            if k in x and isinstance(x[k], (str, bytes)):
+                return x[k]
+        return str(x)
+    return str(x)
+
+
 def connect_neo4j_with_retry():
     from py2neo import Graph
 
@@ -219,25 +228,24 @@ with st.sidebar:
             st.markdown(f"**Q:** {q}")
             st.markdown(f"**A:** {a}")
 
-if st.button("💾 show graph on conversation"):
-    if not st.session_state.chat_history:
-        st.warning("No chat history to save.")
-    else:
-        try:
-            graph_data = save_to_neo4j(st.session_state.chat_history)
-            st.success("Saved to Neo4j!")
-            net = Network(height="500px", width="50%", bgcolor="#979090", font_color="black")
-            for node in graph_data["nodes"]:
-                net.add_node(node["id"], label=node["label"], title=node.get("text", node["label"]))
-            for edge in graph_data["edges"]:
-                net.add_edge(edge["source"], edge["target"], label=edge["label"])
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
-                net.save_graph(tmp_file.name)
-                tmp_path = tmp_file.name
-            st.markdown("### 📈 Knowledge Graph")
-            components.html(open(tmp_path, "r", encoding="utf-8").read(), height=550)
-        except Exception as e:
-            st.error(f"❌ Failed to save and render graph: {e}")
+col1, col2 = st.columns([3, 1])  # Make "Send" wider
+
+with col1:
+    if st.button("Send"):
+        with st.spinner("Thinking..."):
+            result = qa_chain.invoke(user_question)
+        result_text = _as_text(result)
+        st.session_state.chat_history.append((user_question, result_text))
+        st.markdown("### 💬 Answer")
+        st.write(result_text)
+        st.session_state.input_question = ""  # clear input
+
+with col2:
+    if st.button("Extract Graph"):
+        # Your knowledge graph extraction code here
+        pass
+
+
 
 user_question = st.text_input("Ask a question about your documents:", placeholder="What is this about?")
 refine_cyber = st.checkbox("Refine question for cybersecurity context")
@@ -252,11 +260,14 @@ if user_question:
     with st.spinner("Thinking..."):
         result = qa_chain.invoke(input_query)
 
-    st.session_state.chat_history.append((user_question, result))
+        result_text = _as_text(result)
 
-    st.markdown("---")
-    st.markdown("### 💬 Answer")
-    st.write(result)
+# store normalized strings to make later steps simpler
+        st.session_state.chat_history.append((input_query, result_text))
+
+        st.markdown("---")
+        st.markdown("### 💬 Answer")
+        st.write(result_text)  # ← plain text, no dict dump
 
     try:
         graph_data = save_to_neo4j(st.session_state.chat_history)
