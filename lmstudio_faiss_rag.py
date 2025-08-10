@@ -183,10 +183,7 @@ def split_docs(docs: List[Document], chunk_size: int, chunk_overlap: int) -> Lis
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
-        separators=["
-
-", "
-", " ", ""],
+        separators=["\n\n", "\n", " ", ""],
     )
     return splitter.split_documents(docs)
 
@@ -215,7 +212,10 @@ def read_index_meta(folder: str) -> Optional[Dict[str, Any]]:
 # Build / load FAISS vectorstore
 # ------------------------------
 
-def build_embeddings_for_ingest(cfg: Config, lm_embed_model_name: Optional[str]) -> (Any, str, Dict[str, Any]):
+def build_embeddings_for_ingest(
+    cfg: Config, lm_embed_model_name: Optional[str]
+) -> tuple[Any, str, Dict[str, Any]]:
+
     if cfg.embedding_mode.lower() == "lmstudio":
         embeddings = LMStudioEmbeddings(cfg.lm_base_url, cfg.lm_api_key, lm_embed_model_name)
         emb_name = embeddings.model_name
@@ -287,12 +287,9 @@ def format_context(docs: List[Document]):
     cites = []
     for i, d in enumerate(docs, 1):
         src = d.metadata.get("source", "unknown")
-        blocks.append(f"[DOC {i}] Source: {src}
-{d.page_content}")
+        blocks.append(f"[DOC {i}] Source: {src}\n{d.page_content}")
         cites.append({"doc": i, "source": src})
-    return "
-
-".join(blocks), cites
+    return "\n\n".join(blocks), cites
 
 
 def call_lmstudio_chat(cfg: Config, system_prompt: str, user_msg: str) -> str:
@@ -322,12 +319,7 @@ def rag_answer(cfg: Config, idx_path: str, question: str, k: int = 4):
         "You are a precise research assistant. Answer the user's question using ONLY the provided context. "
         "If the answer isn't in the context, say you don't know. Cite sources by their [DOC n] labels."
     )
-    user_msg = f"Question: {question}
-
-Context:
-{context_text}
-
-Answer:"
+    user_msg = f"Question: {question}\n\nContext:\n{context_text}\n\nAnswer:"
     answer = call_lmstudio_chat(cfg, system_prompt, user_msg)
     return {"answer": answer, "citations": cites}
 
@@ -400,8 +392,7 @@ def list_indexes_cli(cfg: Config):
         p = os.path.join(cfg.index_root, name)
         if os.path.isdir(p) and os.path.isfile(os.path.join(p, "index.pkl")):
             meta = read_index_meta(p)
-            print(f"- {name}  → {p}
-  meta: {json.dumps(meta, indent=2)}")
+            print(f"- {name}  → {p}\n  meta: {json.dumps(meta, indent=2)}")
 
 
 def main():
@@ -444,12 +435,9 @@ def main():
                 die("No index found. Run --ingest first or specify --index.")
             args.index = chosen
         out = rag_answer(cfg, args.index, args.ask, k=args.k)
-        print("
-=== Answer ===
-" + out["answer"]) 
+        print("\n=== Answer ===\n" + out["answer"])
         if out["citations"]:
-            print("
-Citations:")
+            print("\nCitations:")
             for c in out["citations"]:
                 print(f"  [DOC {c['doc']}] {c['source']}")
         return

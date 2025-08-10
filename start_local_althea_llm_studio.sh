@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- CONFIG ---
-#APP_PATH="/home/frea/FREA/faiss_LLM_Studio_chat_app.py"
+APP_PATH="/home/frea/FREA/lmstudio_rag_chat.py
 FAISS_INDEX_DIR="faiss_index"
 NEO4J_SERVICE="neo4j"
 
@@ -56,7 +56,7 @@ else
 fi
 
 echo "🌐 Launching Streamlit app..."
-#streamlit run "$APP_PATH"
+streamlit run "$APP_PATH"
 
 # === Added functionality ===
 # Run lmstudio_faiss_rag.py in the background on port 8055
