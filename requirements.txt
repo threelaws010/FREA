@@ -31,3 +31,5 @@ opencv-python-headless
 Pillow
 numpy
 ultralytics
+requests>=2.31.0
+pyvis==0.3.2
