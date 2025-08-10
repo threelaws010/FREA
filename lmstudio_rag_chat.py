@@ -54,6 +54,7 @@ DEFAULT_LMS_MODEL    = os.getenv("LMSTUDIO_MODEL", "local-model")
 DEFAULT_RAG_BASE_URL = os.getenv("RAG_BASE_URL", "http://127.0.0.1:8055")
 DEFAULT_FAISS_DIR    = os.getenv("FAISS_INDEX_DIR", str(pathlib.Path("faiss_index").absolute()))
 UPLOADS_SUBDIR       = "uploads"  # will be created inside FAISS dir
+LMSTUDIO_API_KEY     = os.getenv("LMSTUDIO_API_KEY", "lm-studio")
 
 # =====================
 # Helpers
@@ -206,7 +207,7 @@ with st.sidebar:
     st.header("⚙️ Settings")
     lms_base = st.text_input("LM Studio Base URL", DEFAULT_LMS_BASE_URL)
     lms_model = st.text_input("LM Studio Model", DEFAULT_LMS_MODEL)
-    lms_key   = st.text_input("LM Studio API Key (optional)", DEFAULT_LMS_API_KEY, type="password")
+    lms_key   = st.text_input("LM Studio API Key (optional)", LMSTUDIO_API_KEY, type="password",)
 
     use_rag = st.toggle("Use RAG (FAISS via lmstudio_faiss_rag.py)", value=True)
     rag_base = st.text_input("RAG Base URL", DEFAULT_RAG_BASE_URL)

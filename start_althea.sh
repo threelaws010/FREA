@@ -137,7 +137,7 @@ if [[ -f "${RAG_API_PY}" ]]; then
       err "Failed to start lmstudio_faiss_rag.py API. See logs: ${RAG_API_LOG}"
     }
     sleep 2
-    if pgrep -f "python.*${RAG_API_PY}.*--serve" >/dev/null 2>&1; then
+    if pgrep -f "python3.*${RAG_API_PY}.*--serve" >/dev/null 2>&1; then
       ok "lmstudio_faiss_rag.py API started. Logs: ${RAG_API_LOG}"
     else
       warn "lmstudio_faiss_rag.py API may not have started correctly. Logs: ${RAG_API_LOG}"
