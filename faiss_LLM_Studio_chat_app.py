@@ -1,5 +1,8 @@
 # faiss_llmstudio_chat_app.py
 
+import sys
+import streamlit as st
+
 import os
 import streamlit as st
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -38,6 +41,11 @@ from langchain_ollama import OllamaEmbeddings
 from py2neo import Graph
 import subprocess
 import time
+
+st.set_page_config(page_title="LM Studio RAG Chat", layout="wide", page_icon="🧠")
+
+user_question = st.text_input("Ask a question about your documents:", placeholder="What is this about?")
+refine_cyber = st.checkbox("Refine question for cybersecurity context")
 
 def _as_text(x):
     if isinstance(x, dict):
@@ -214,7 +222,7 @@ def save_to_neo4j(chat_history):
     return graph_data
 
 
-st.set_page_config(page_title="LM Studio RAG Chat", layout="wide")
+#st.set_page_config(page_title="LM Studio RAG Chat", layout="wide")
 st.title("🧠 LM Studio + FAISS Chatbot")
 qa_chain = create_qa_chain()
 
@@ -234,7 +242,7 @@ with col1:
     if st.button("Send"):
         with st.spinner("Thinking..."):
             result = qa_chain.invoke(user_question)
-        result_text = _as_text(result)
+            result_text = _as_text(result)
         st.session_state.chat_history.append((user_question, result_text))
         st.markdown("### 💬 Answer")
         st.write(result_text)
@@ -247,8 +255,7 @@ with col2:
 
 
 
-user_question = st.text_input("Ask a question about your documents:", placeholder="What is this about?")
-refine_cyber = st.checkbox("Refine question for cybersecurity context")
+
 
 if user_question:
     input_query = user_question

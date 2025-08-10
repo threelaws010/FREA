@@ -5,8 +5,8 @@ from pathlib import Path
 
 # --------- CONFIG ----------
 FAISS_DIR = Path(__file__).resolve().parent / "faiss_index" # folder with index.faiss + index.pkl
-EMBED_MODEL = "text-embedding-3-large"   # must match what built the index
-CHAT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+EMBED_MODEL = "allenai/specter2"   # must match what built the index
+CHAT_MODEL = "google/gemma-3-12b"
 # ---------------------------
 
 # Env for LM Studio OpenAI-compatible server
