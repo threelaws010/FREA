@@ -163,10 +163,15 @@ else
 fi
 
 
-
-konsole --new-tab -e bash -c "python3 /path/to/auto_run_if_idle.py; exec bash"
- "✅ All services started."
+python3 auto_run_if_idle.py && echo "✅ All services started."
 else
   err "Failed to start all services. Check logs for details."
   exit 1
-fi  
+fi
+
+# Run auto_run_if_idle.py visibly in terminal
+python3 auto_run_if_idle.py && echo "✅ All services started."
+else
+  echo "❌ Failed to start all services. Check logs for details." >&2
+  exit 1
+fi
