@@ -161,3 +161,10 @@ else
   err "Streamlit app not found: ${STREAMLIT_APP}"
   exit 1
 fi
+
+
+# 🔄 Start idle-time processor script in its own background thread
+echo "🛌 Starting auto_run_if_idle.py..."
+nohup python3 /home/frea/FREA/auto_run_if_idle.py > auto_run_if_idle.log 2>&1 & disown
+
+echo "✅ All services started."
