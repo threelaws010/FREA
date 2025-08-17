@@ -291,6 +291,23 @@ def format_context(docs: List[Document]):
         cites.append({"doc": i, "source": src})
     return "\n\n".join(blocks), cites
 
+def read_plaintext(files: list[str]) -> str:
+    """Best-effort read of small .txt/.md files."""
+    out = []
+    for fp in files or []:
+        try:
+            if not os.path.isfile(fp):
+                continue
+            ext = os.path.splitext(fp)[1].lower()
+            if ext in {".txt", ".md"}:
+                with open(fp, "r", encoding="utf-8") as f:
+                    out.append(f.read())
+            # (Optional) add quick PDF text extraction here later if needed
+        except Exception:
+            # ignore unreadable files
+            pass
+    return "\n\n".join(out)
+
 
 def call_lmstudio_chat(cfg: Config, system_prompt: str, user_msg: str) -> str:
     client = OpenAI(base_url=cfg.lm_base_url, api_key=cfg.lm_api_key)
@@ -339,6 +356,8 @@ class AskReq(BaseModel):
     question: str
     index: Optional[str] = None
     k: int = 4
+    extra_text: Optional[str] = None
+    extra_files: Optional[list[str]] = None  # absolute paths to small .txt/.md (add PDF parse later if desired)
 
 @app.get("/health")
 async def health():
@@ -369,14 +388,45 @@ async def api_ingest(req: IngestReq):
 
 @app.post("/ask")
 async def api_ask(req: AskReq):
+    # 1) Choose / validate index (existing logic)
     idx = req.index
     if not idx:
-        # auto-pick first available index
         candidates = await list_indexes()
         if not candidates["indexes"]:
             return {"answer": "No indexes found. Ingest first.", "citations": []}
         idx = candidates["indexes"][0]["path"]
-    return rag_answer(CFG, idx, req.question, k=req.k)
+
+    # 2) Retrieve from FAISS (mirror what rag_answer does)
+    vs = load_index(idx, CFG)  # uses embeddings from meta/env
+    ctx_docs = retrieve_context(vs, req.question, k=req.k)
+    context_text, cites = ("", [])
+    if ctx_docs:
+        context_text, cites = format_context(ctx_docs)
+
+    # 3) Merge in ad-hoc extras (no reindex)
+    extras = []
+    if req.extra_text:
+        extras.append(req.extra_text)
+    if req.extra_files:
+        extras.append(read_plaintext(req.extra_files))
+    merged_context = context_text
+    if any(extras):
+        merged_context = (context_text + "\n\n[EXTRA]\n" + "\n\n".join(x for x in extras if x)) if context_text else "\n\n".join(x for x in extras if x)
+
+    # 4) Ask LM Studio with merged context (same style as rag_answer)
+    system_prompt = (
+        "You are a precise research assistant. Answer the user's question using ONLY the provided context. "
+        "If the answer isn't in the context, say you don't know. Cite sources by their [DOC n] labels; "
+        "for extra snippets, cite as [EXTRA]."
+    )
+    user_msg = f"Question: {req.question}\n\nContext:\n{merged_context}\n\nAnswer:"
+    answer = call_lmstudio_chat(CFG, system_prompt, user_msg)  # you already have this helper :contentReference[oaicite:3]{index=3}
+
+    # 5) Return combined citations (tag extras if present)
+    if any(extras):
+        cites = cites + [{"doc": "EXTRA", "source": "uploads"}]
+    return {"answer": answer, "citations": cites}
+
 
 
 # ------------------------------
