@@ -10,8 +10,8 @@ import platform
 
 load_dotenv()
 
-CHECK_INTERVAL = 100 # seconds
-IDLE_THRESHOLD = 300# 5 minutes
+CHECK_INTERVAL = 15 # seconds
+IDLE_THRESHOLD = 30# 5 minutes
 
 def is_idle():
     try:
@@ -32,7 +32,7 @@ def run_make_md():
 def run_vector_store():
     print("🧠 Running vector_store.py...")
     #return subprocess.call(["python3", "/home/frea/FREA/store_vectors/vector_store.py"])
-    return subprocess.call(["python3", "/home/frea/FREA/store_vectors/multi_vector_store.py"])
+    return subprocess.call(["python3", "/home/frea/FREA/store_vectors/Milves_vector_store.py"])
 
 def main_loop():
     while True:
