@@ -1,3 +1,4 @@
+# Supabase_pgvector_store.py
 import os
 import json
 import hashlib
@@ -8,10 +9,17 @@ from dotenv import load_dotenv
 
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Milvus
 
+# ✅ PGVector (Supabase Postgres with pgvector)
+from sqlalchemy import create_engine
+from langchain_community.vectorstores import PGVector
+from langchain.schema import Document
 
 from anythingllm_read_embed_model import read_embed_model_from_api
+
+load_dotenv()
+
+# -------------------- Config --------------------
 
 BASE = os.getenv("ANYLLM_BASE", "http://localhost:3001")
 KEY  = os.getenv("ANYLLM_API_KEY", "")
@@ -22,33 +30,38 @@ print("Using embed model:", EMBED_MODEL)
 
 # Backends
 # - ST: local SentenceTransformers
-# - LM_STUDIO: LM Studio's OpenAI-compatible embeddings API
+# - LM_STUDIO: LM Studio's (or LocalAI/OpenAI-compatible) embeddings API
 EMBED_BACKEND = os.getenv("EMBED_BACKEND", "ST").upper()
-#EMBED_MODEL   = os.getenv("EMBED_MODEL", "allenai/specter2")   # pick your HF model or LM Studio embedding model name
 INPUT_DIR     = os.getenv("INPUT_DIR", "./input")
-VECTOR_BASE_PATH = Path(os.getenv("VECTOR_BASE_PATH", "./faiss_indexes"))
 
-# LM Studio server (only used when EMBED_BACKEND=LM_STUDIO)
-# Make sure LM Studio Developer server is ON and the embedding model is loaded.
-os.environ.setdefault("OPENAI_BASE_URL", "http://localhost:1234/v1")
-os.environ.setdefault("OPENAI_API_KEY", "lm-studio")
+# Postgres / Supabase (inside Docker network use service DNS, e.g., "supabase-db")
+PGHOST     = os.getenv("PGHOST", "localhost")
+PGPORT     = os.getenv("PGPORT", "5432")
+PGUSER     = os.getenv("PGUSER", "postgres")
+PGPASSWORD = os.getenv("PGPASSWORD", "postgres")
+PGDATABASE = os.getenv("PGDATABASE", "postgres")
+
+# Collection (aka “index”/namespace) name
+COLLECTION_NAME = os.getenv("PGVECTOR_COLLECTION", "text_collection")
+
+# LM Studio / LocalAI server (only used when EMBED_BACKEND=LM_STUDIO)
+# Ensure the server is up and the embedding model is loaded/exposed.
+os.environ.setdefault("OPENAI_BASE_URL", os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1"))
+os.environ.setdefault("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", "lm-studio"))
 
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "120"))
 
-load_dotenv()
-
-# ---------- Embedding wrappers ----------
+# ---------------- Embedding wrappers ----------------
 
 class STEmbeddings:
-    """Thin wrapper so FAISS can call a SentenceTransformers model."""
+    """Thin wrapper so LangChain vector stores can call a SentenceTransformers model."""
     def __init__(self, model_name: str):
         from sentence_transformers import SentenceTransformer
         self.model_name = model_name
         self.model = SentenceTransformer(model_name)
 
     def _encode(self, texts: List[str]) -> List[List[float]]:
-        # convert_to_numpy=True is faster; convert to list for LangChain
         return self.model.encode(texts, convert_to_numpy=True, normalize_embeddings=False).tolist()
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -59,7 +72,7 @@ class STEmbeddings:
 
 
 class LMStudioEmbeddings:
-    """Use LM Studio's OpenAI-compatible embeddings endpoint via langchain_openai."""
+    """Use an OpenAI-compatible embeddings endpoint (LM Studio / LocalAI) via langchain_openai."""
     def __init__(self, model_name: str):
         from langchain_openai import OpenAIEmbeddings
         self.model_name = model_name
@@ -71,40 +84,16 @@ class LMStudioEmbeddings:
     def embed_query(self, text: str) -> List[float]:
         return self.inner.embed_query(text)
 
+
 def get_embedding_impl():
     if EMBED_BACKEND == "LM_STUDIO":
-        print(f"🔗 Using LM Studio embeddings: {EMBED_MODEL}")
+        print(f"🔗 Using OpenAI-compatible embeddings: {EMBED_MODEL}")
         return LMStudioEmbeddings(EMBED_MODEL)
-    # default ST
+    # default: SentenceTransformers
     print(f"💻 Using local SentenceTransformers embeddings: {EMBED_MODEL}")
     return STEmbeddings(EMBED_MODEL)
 
-# ---------- FAISS index dir per embedding ----------
-
-def index_dir_for_embedding() -> Path:
-    """Unique directory per (backend, model)."""
-    safe_model = EMBED_MODEL.replace("/", "__")
-    dir_path = VECTOR_BASE_PATH / f"{EMBED_BACKEND}__{safe_model}"
-    dir_path.mkdir(parents=True, exist_ok=True)
-    return dir_path
-
-def write_embedding_meta(dir_path: Path, extra: dict | None = None):
-    meta = {
-        "backend": EMBED_BACKEND,
-        "model": EMBED_MODEL,
-    }
-    if extra:
-        meta.update(extra)
-    with open(dir_path / "embedding_meta.json", "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=2)
-
-def read_embedding_meta(dir_path: Path) -> dict | None:
-    p = dir_path / "embedding_meta.json"
-    if p.exists():
-        return json.loads(p.read_text())
-    return None
-
-# ---------- Helpers ----------
+# ---------------- Helpers ----------------
 
 def get_file_hash(file_path: str) -> str:
     h = hashlib.sha256()
@@ -119,9 +108,33 @@ def has_been_processed(file_path: str, marker_dir: Path) -> tuple[bool, Path]:
     marker_path = marker_dir / f"{hash_val}.done"
     return marker_path.exists(), marker_path
 
-# ---------- Core pipeline ----------
+def get_engine():
+    # SQLAlchemy 2.x engine for PGVector
+    conn = f"postgresql+psycopg://{PGUSER}:{PGPASSWORD}@{PGHOST}:{PGPORT}/{PGDATABASE}"
+    return create_engine(conn)
 
-def store_file(file_path: str, vectorstore: Any, embeddings_impl: Any):
+# ---------------- Core pipeline (PGVector) ----------------
+
+def ensure_vectorstore(embeddings_impl: Any) -> PGVector | None:
+    """
+    Connect to (or lazily create) a PGVector collection. Assumes pgvector extension is installed:
+      CREATE EXTENSION IF NOT EXISTS vector;
+    """
+    try:
+        engine = get_engine()
+        # Bare init (does not create tables); will create on first .add_documents if needed
+        vs = PGVector(
+            embedding_function=embeddings_impl,
+            collection_name=COLLECTION_NAME,
+            connection=engine,
+            use_jsonb=True,
+        )
+        return vs
+    except Exception as e:
+        print(f"⚠️ Could not connect to Postgres/PGVector: {e}")
+        return None
+
+def store_file(file_path: str, vectorstore: PGVector, embeddings_impl: Any):
     print(f"📄 Loading file: {file_path}")
     loader = TextLoader(file_path, encoding="utf-8")
     documents = loader.load()
@@ -132,36 +145,21 @@ def store_file(file_path: str, vectorstore: Any, embeddings_impl: Any):
     print(f"✂️ Split into {len(docs)} chunks")
 
     if vectorstore is None:
-        vectorstore = Milvus.from_documents(
-            docs,
-            embeddings_impl,
-            connection_args={"host": "localhost", "port": "19530"},
-            collection_name="text_collection"
+        # Create a new collection and insert docs
+        engine = get_engine()
+        vectorstore = PGVector.from_documents(
+            documents=docs,
+            embedding=embeddings_impl,
+            collection_name=COLLECTION_NAME,
+            connection=engine,
+            use_jsonb=True,
         )
+        print(f"✅ Created PGVector collection '{COLLECTION_NAME}' and inserted chunks.")
     else:
         vectorstore.add_documents(docs)
+        print(f"✅ Appended {len(docs)} chunks to PGVector collection '{COLLECTION_NAME}'.")
 
-    print(f"✅ Inserted into Milvus: {file_path}")
     return vectorstore
-
-def load_vectorstore(embeddings_impl: Any):
-    try:
-        return Milvus(
-            embeddings_impl,
-            connection_args={"host": "localhost", "port": "19530"},
-            collection_name="text_collection"
-        )
-    except Exception as e:
-        print(f"⚠️ Could not connect to Milvus: {e}")
-        return None
-
-def save_vectorstore(vectorstore: Any):
-    dir_path = index_dir_for_embedding()
-    print(f"💾 Saving FAISS to {dir_path} …")
-    vectorstore.save_local(dir_path)
-    # Drop a meta file so we know which embedding created it
-    write_embedding_meta(dir_path)
-    print("✅ Saved.")
 
 def process_all_txt_files(folder_path: str = INPUT_DIR):
     folder = Path(folder_path)
@@ -169,12 +167,16 @@ def process_all_txt_files(folder_path: str = INPUT_DIR):
         print(f"❌ Folder not found: {folder}")
         return
 
-    dir_path = index_dir_for_embedding()
-    marker_dir = dir_path / "processed"
+    # Marker dir still useful to avoid re-ingesting the same files
+    marker_dir = Path("./pgvector_processed") / COLLECTION_NAME
     marker_dir.mkdir(parents=True, exist_ok=True)
 
     embeddings_impl = get_embedding_impl()
-    vectorstore = load_vectorstore(embeddings_impl)
+    vectorstore = ensure_vectorstore(embeddings_impl)
+
+    if not vectorstore:
+        print("⚠️ Vector store not available. Check Postgres connection and pgvector extension.")
+        return
 
     print(f"📁 Scanning: {folder}")
     any_new = False
@@ -190,18 +192,16 @@ def process_all_txt_files(folder_path: str = INPUT_DIR):
         marker_path.write_text("processed")
         any_new = True
 
-    if vectorstore and any_new:
-        print("✅ Indexed new documents into Milvus.")
-    elif not vectorstore:
-        print("⚠️ Nothing indexed yet. Add .txt files and rerun.")
+    if any_new:
+        print(f"✅ Indexed new documents into PGVector collection '{COLLECTION_NAME}'.")
     else:
         print("ℹ️ No new files; index unchanged.")
 
 def query_loop():
     embeddings_impl = get_embedding_impl()
-    vectorstore = load_vectorstore(embeddings_impl)
+    vectorstore = ensure_vectorstore(embeddings_impl)
     if not vectorstore:
-        print("⚠️ No Milvus collection to query.")
+        print("⚠️ No PGVector collection to query.")
         return
 
     print("\n💬 Enter query (or 'exit'):")

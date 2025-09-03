@@ -26,13 +26,14 @@ def is_idle():
 def run_make_md():
     print("🖼️ Running gpt_process_images.py..")
     #return subprocess.call(["python3", "gpt_process_images.py"])
-    return subprocess.call(["python3", "gpt_process_images_lmstudio_recursive_rewritten.py"])
+   
 
 
 def run_vector_store():
     print("🧠 Running vector_store.py...")
     #return subprocess.call(["python3", "/home/frea/FREA/store_vectors/vector_store.py"])
-    return subprocess.call(["python3", "/home/frea/FREA/store_vectors/Milves_vector_store.py"])
+    #return subprocess.call(["python3", "/home/frea/FREA/store_vectors/Milves_vector_store.py"])
+    return subprocess.call(["python3", "/home/frea/FREA/store_vectors/supabase_pgvector_store.py"])
 
 def main_loop():
     while True:
