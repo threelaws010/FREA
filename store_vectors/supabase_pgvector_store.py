@@ -15,7 +15,7 @@ from sqlalchemy import create_engine
 from langchain_community.vectorstores import PGVector
 from langchain.schema import Document
 
-from anythingllm_read_embed_model import read_embed_model_from_api
+#from anythingllm_read_embed_model import read_embed_model_from_api
 
 load_dotenv()
 
@@ -25,7 +25,9 @@ BASE = os.getenv("ANYLLM_BASE", "http://localhost:3001")
 KEY  = os.getenv("ANYLLM_API_KEY", "")
 SLUG = os.getenv("ANYLLM_WORKSPACE", "default")
 
-EMBED_MODEL = read_embed_model_from_api(BASE, KEY, SLUG) or "allenai/specter2"
+EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-large")
+
+#EMBED_MODEL = read_embed_model_from_api(BASE, KEY, SLUG) or "allenai/specter2"
 print("Using embed model:", EMBED_MODEL)
 
 # Backends

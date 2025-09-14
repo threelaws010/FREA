@@ -35,12 +35,24 @@ def run_vector_store():
     #return subprocess.call(["python3", "/home/frea/FREA/store_vectors/Milves_vector_store.py"])
     return subprocess.call(["python3", "/home/frea/FREA/store_vectors/supabase_pgvector_store.py"])
 
+def run_build_kg():
+    print("🔗 Running build_kg_from_txt.py on input folder...")
+    input_dir = os.getenv("INPUT_DIR", "./input")
+    for fname in os.listdir(input_dir):
+        if fname.endswith(".txt"):
+            fpath = os.path.join(input_dir, fname)
+            print(f"   📄 Processing {fpath}")
+            subprocess.call([
+                "python3", "/home/frea/FREA/Kgraph/build_kg_from_txt.py", fpath
+            ])
+
 def main_loop():
     while True:
         if is_idle():
             print("🛌 System idle — beginning processing...")
             run_make_md()
             run_vector_store()
+            run_build_kg()
             print("✅ Processing complete. Sleeping before re-check...")
             time.sleep(CHECK_INTERVAL * 2)
         else:
